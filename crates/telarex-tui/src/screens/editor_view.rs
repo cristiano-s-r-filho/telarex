@@ -549,7 +549,7 @@ impl Component for EditorView {
 
                     if let Some((res, path_info, offset)) = editor_data {
                         if let Some((p, c)) = path_info {
-                            self.sync_engine.apply_local_splice(&p, c.pos, c.del.try_into().unwrap(), &c.text);
+                    self.sync_engine.apply_local_splice(&p, c.pos, c.del as isize, &c.text);
                             if let Some(editor) = self.get_active_editor_ref() {
                                 if let Some(doc_arc) = editor._document() {
                                     let doc_content = doc_arc.lock().unwrap().rope.to_string();

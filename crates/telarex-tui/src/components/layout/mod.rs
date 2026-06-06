@@ -195,13 +195,13 @@ impl LayoutTree {
         match node.kind {
             NodeKind::Pane(_) => { map.insert(node.id, area); }
             NodeKind::Split => {
-                let _ratio = (node.split_ratio * 100.0) as u16;
+                let ratio = node.split_ratio.clamp(0.1, 0.9);
                 let chunks = Layout::default()
                     .direction(node.direction)
                     .constraints([
-                        Constraint::Fill(1),
+                        Constraint::Fill((ratio * 100.0) as u16),
                         Constraint::Length(1),
-                        Constraint::Fill(1),
+                        Constraint::Fill(((1.0 - ratio) * 100.0) as u16),
                     ])
                     .split(area);
                 
@@ -249,12 +249,13 @@ impl LayoutTree {
                 editor.draw(frame, area, ctx);
             }
             NodeKind::Split => {
+                let ratio = node.split_ratio.clamp(0.1, 0.9);
                 let chunks = Layout::default()
                     .direction(node.direction)
                     .constraints([
-                        Constraint::Fill(1),
+                        Constraint::Fill((ratio * 100.0) as u16),
                         Constraint::Length(1),
-                        Constraint::Fill(1),
+                        Constraint::Fill(((1.0 - ratio) * 100.0) as u16),
                     ])
                     .split(area);
                 

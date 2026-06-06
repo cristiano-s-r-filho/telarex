@@ -37,7 +37,7 @@ impl Theme {
         let fg = parse_hex(&ss.resolve_color(&ss.ui.fg));
         let accent = parse_hex(&ss.resolve_color(&ss.ui.border_active));
         let border_inactive = parse_hex(&ss.resolve_color(&ss.ui.border_inactive));
-        let selection_bg = parse_hex(&ss.resolve_color(&ss.ui.selection_bg));
+        let selection_bg = parse_hex(&ss.resolve_color(ss.ui.selection_bg.color()));
         
         let mut syntax = std::collections::HashMap::new();
         for (name, token) in &ss.syntax {

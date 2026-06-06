@@ -19,6 +19,20 @@ use ratatui::backend::CrosstermBackend;
 use ratatui::Terminal;
 use tui_compat::{AppContext, DrawContext};
 
+struct TerminalGuard;
+
+impl Drop for TerminalGuard {
+    fn drop(&mut self) {
+        #[cfg(windows)]
+        {
+            use crossterm::event::PopKeyboardEnhancementFlags;
+            let _ = execute!(io::stdout(), PopKeyboardEnhancementFlags);
+        }
+        let _ = execute!(io::stdout(), LeaveAlternateScreen);
+        let _ = disable_raw_mode();
+    }
+}
+
 #[derive(Parser, Debug)]
 #[command(name = "tr")]
 struct Args {
@@ -72,6 +86,7 @@ async fn main() -> anyhow::Result<()> {
     let backend = CrosstermBackend::new(&mut stdout);
     let mut terminal = Terminal::new(backend)?;
 
+    let _guard = TerminalGuard;
     let mut ctx = AppContext::new();
 
     while !ctx.should_quit() {
@@ -80,13 +95,11 @@ async fn main() -> anyhow::Result<()> {
             app.draw(frame, area, &draw_ctx);
         })?;
 
-        if crossterm::event::poll(std::time::Duration::from_millis(50))? {
+        if crossterm::event::poll(std::time::Duration::from_millis(5))? {
             let event = crossterm::event::read()?;
             app.handle_event(&event, &mut ctx);
         }
     }
 
-    disable_raw_mode()?;
-    execute!(stdout, LeaveAlternateScreen)?;
     Ok(())
 }
