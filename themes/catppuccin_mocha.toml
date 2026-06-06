@@ -1,0 +1,71 @@
+name = "Catppuccin Mocha"
+
+[metadata]
+author = "TelaRex Team"
+variant = "dark"
+
+[palette]
+bg = "#1e1e2e"
+bg_alt = "#181825"
+surface = "#313244"
+surface_alt = "#45475a"
+fg = "#cdd6f4"
+fg_muted = "#a6adc8"
+fg_dim = "#585b70"
+accent = "#cba6f7"
+accent_secondary = "#f5c2e7"
+green = "#a6e3a1"
+red = "#f38ba8"
+orange = "#fab387"
+yellow = "#f9e2af"
+cyan = "#94e2d5"
+blue = "#89b4fa"
+purple = "#cba6f7"
+teal = "#94e2d5"
+comment = "#6c7086"
+
+[ui]
+bg = "bg"
+fg = "fg"
+bg_alt = "bg_alt"
+surface = "surface"
+surface_alt = "surface_alt"
+fg_muted = "fg_muted"
+fg_dim = "fg_dim"
+border_active = "accent"
+border_inactive = "fg_dim"
+selection_bg = { color = "accent", alpha = 0.3 }
+selection_fg = "fg"
+gutter_bg = "bg"
+gutter_fg = "fg_muted"
+status_bar_bg = "surface"
+status_bar_fg = "fg_muted"
+status_bar_mode_normal = "blue"
+status_bar_mode_insert = "green"
+status_bar_mode_visual = "accent"
+tab_active_underline = "accent"
+tab_inactive_fg = "fg_muted"
+cursor = "accent"
+error = "red"
+warning = "orange"
+success = "green"
+info = "cyan"
+hint = "fg_muted"
+git_added = "green"
+git_modified = "yellow"
+git_removed = "red"
+
+[syntax]
+keyword = { color = "accent", bold = true }
+function = { color = "blue" }
+string = { color = "green" }
+comment = { color = "comment", italic = true }
+variable = { color = "fg" }
+type = { color = "yellow" }
+constant = { color = "orange" }
+operator = { color = "teal" }
+punctuation = { color = "fg" }
+number = { color = "orange" }
+parameter = { color = "red" }
+property = { color = "cyan" }
+constructor = { color = "yellow" }

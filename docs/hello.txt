@@ -1,0 +1,19 @@
+This is a text file!
+A test only! 
+#(testing general editing) I modified it on this line! 
+#(testing cursor visibility) It is nice.
+#(testing status_bar integration + views) It also works.
+#(testing the file explorer integration on Editor view) It actually works. 
+#(testing the Command Palette in the terminal) It works too.
+#(testing new Theme interface and actual TrueColor GPU based Terminal) It works!! 
+#(testing Fuzzy Search interface and actual Custom File Tree) It works now!! [#26.04.2026] 
+#(testing new Stysheet to see if it works) IT works.  
+#(testing new Macro System and SyncEngine) It kinda works.  
+#(testing the New Workspace and SyncEngine integration) It does not works that much [#02.05.2026] 
+#(testing the New LodgeNet Local Peer discovery) It works!  
+#(testing reactions from Alpha declarations)It works!
+#(testing reactions on the Beta declarations) It works!
+#(testing Insert Mode) It kinda works!
+#(Testing new Modeless Editing) It works! 
+
+#(Testing new BufferManager) It technically works!   

@@ -1,0 +1,71 @@
+name = "Tokyo Night"
+
+[metadata]
+author = "TelaRex Team"
+variant = "dark"
+
+[palette]
+bg = "#1a1b26"
+bg_alt = "#16161e"
+surface = "#24283b"
+surface_alt = "#1f2335"
+fg = "#a9b1d6"
+fg_muted = "#565f89"
+fg_dim = "#3b4261"
+accent = "#7aa2f7"
+accent_secondary = "#bb9af7"
+green = "#9ece6a"
+red = "#f7768e"
+orange = "#ff9e64"
+yellow = "#e0af68"
+cyan = "#7dcfff"
+blue = "#7aa2f7"
+purple = "#bb9af7"
+teal = "#1abc9c"
+comment = "#565f89"
+
+[ui]
+bg = "bg"
+fg = "fg"
+bg_alt = "bg_alt"
+surface = "surface"
+surface_alt = "surface_alt"
+fg_muted = "fg_muted"
+fg_dim = "fg_dim"
+border_active = "accent"
+border_inactive = "fg_dim"
+selection_bg = { color = "accent", alpha = 0.3 }
+selection_fg = "fg"
+gutter_bg = "bg"
+gutter_fg = "fg_muted"
+status_bar_bg = "surface"
+status_bar_fg = "fg_muted"
+status_bar_mode_normal = "accent"
+status_bar_mode_insert = "green"
+status_bar_mode_visual = "accent_secondary"
+tab_active_underline = "accent"
+tab_inactive_fg = "fg_muted"
+cursor = "accent"
+error = "red"
+warning = "orange"
+success = "green"
+info = "cyan"
+hint = "fg_muted"
+git_added = "green"
+git_modified = "yellow"
+git_removed = "red"
+
+[syntax]
+keyword = { color = "purple", bold = true }
+function = { color = "accent" }
+string = { color = "green" }
+comment = { color = "comment", italic = true }
+variable = { color = "fg" }
+type = { color = "yellow" }
+constant = { color = "orange" }
+operator = { color = "cyan" }
+punctuation = { color = "fg" }
+number = { color = "orange" }
+parameter = { color = "red" }
+property = { color = "cyan" }
+constructor = { color = "yellow" }

@@ -1,0 +1,45 @@
+name = "Bloody Red"
+
+[metadata]
+author = "Gemini"
+variant = "dark"
+
+[palette]
+bg = "#0a0000"
+fg = "#ffcccc"
+accent = "#ff0000"
+blood = "#880000"
+dark_blood = "#440000"
+green = "#00ff00"
+yellow = "#ffff00"
+cyan = "#00ffff"
+comment = "#663333"
+
+[ui]
+bg = "bg"
+fg = "fg"
+border_active = "accent"
+border_inactive = "dark_blood"
+selection_bg = "dark_blood"
+gutter_bg = "bg"
+gutter_fg = "blood"
+status_bar_bg = "#1a0000"
+status_bar_fg = "fg"
+error = "accent"
+warning = "yellow"
+info = "accent"
+hint = "cyan"
+git_added = "green"
+git_modified = "yellow"
+git_removed = "accent"
+
+[syntax]
+keyword = { color = "accent", bold = true }
+function = { color = "blood" }
+string = { color = "green" }
+comment = { color = "comment", italic = true }
+variable = { color = "fg" }
+type = { color = "yellow" }
+constant = { color = "accent" }
+operator = { color = "accent" }
+punctuation = { color = "fg" }

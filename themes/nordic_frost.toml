@@ -1,0 +1,68 @@
+name = "Nordic Frost"
+
+[metadata]
+author = "TelaRex Team"
+variant = "dark"
+
+[palette]
+bg = "#2e3440"
+bg_alt = "#282e38"
+surface = "#3b4252"
+surface_alt = "#434c5e"
+fg = "#eceff4"
+fg_muted = "#81a1c1"
+fg_dim = "#4c566a"
+accent = "#88c0d0"
+accent_secondary = "#b48ead"
+green = "#a3be8c"
+red = "#bf616a"
+orange = "#d08770"
+yellow = "#ebcb8b"
+cyan = "#8fbcbb"
+comment = "#4c566a"
+
+[ui]
+bg = "bg"
+fg = "fg"
+bg_alt = "bg_alt"
+surface = "surface"
+surface_alt = "surface_alt"
+fg_muted = "fg_muted"
+fg_dim = "fg_dim"
+border_active = "accent"
+border_inactive = "fg_dim"
+selection_bg = { color = "accent", alpha = 0.3 }
+selection_fg = "fg"
+gutter_bg = "bg"
+gutter_fg = "fg_muted"
+status_bar_bg = "surface"
+status_bar_fg = "fg_muted"
+status_bar_mode_normal = "accent"
+status_bar_mode_insert = "green"
+status_bar_mode_visual = "accent_secondary"
+error = "red"
+warning = "yellow"
+success = "green"
+info = "accent"
+hint = "cyan"
+cursor = "accent"
+tab_active_underline = "accent"
+tab_inactive_fg = "fg_muted"
+git_added = "green"
+git_modified = "yellow"
+git_removed = "red"
+
+[syntax]
+keyword = { color = "accent_secondary", bold = true }
+function = { color = "accent" }
+string = { color = "green" }
+comment = { color = "comment", italic = true }
+variable = { color = "fg" }
+type = { color = "yellow" }
+constant = { color = "orange" }
+operator = { color = "cyan" }
+punctuation = { color = "fg" }
+number = { color = "orange" }
+parameter = { color = "red" }
+property = { color = "cyan" }
+constructor = { color = "yellow" }

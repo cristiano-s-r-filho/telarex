@@ -1,0 +1,41 @@
+[package]
+name = "telarex-tui"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "trex"
+path = "src/main.rs"
+
+[features]
+default = ["lsp", "clipboard"]
+lsp = ["telarex-core/lsp"]
+clipboard = ["telarex-core/clipboard"]
+unstable = []
+
+[dependencies]
+telarex-core = { path = "../telarex-core" }
+
+ratatui = { workspace = true }
+crossterm = { workspace = true }
+tokio = { workspace = true }
+anyhow = { workspace = true }
+log = { workspace = true }
+env_logger = { workspace = true }
+serde_json = { workspace = true }
+serde = { workspace = true }
+clap = { version = "4.5", features = ["derive"] }
+ropey = { workspace = true }
+ignore = "0.4"
+automerge = { workspace = true }
+unicode-width = "0.1"
+uuid = { workspace = true }
+rand = { workspace = true }
+hex = { workspace = true }
+futures = { workspace = true }
+
+walkdir = { workspace = true }

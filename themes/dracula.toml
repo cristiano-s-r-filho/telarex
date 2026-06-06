@@ -1,0 +1,71 @@
+name = "Dracula"
+
+[metadata]
+author = "TelaRex Team"
+variant = "dark"
+
+[palette]
+bg = "#282a36"
+bg_alt = "#21222c"
+surface = "#343746"
+surface_alt = "#3d3f4f"
+fg = "#f8f8f2"
+fg_muted = "#9a9aa0"
+fg_dim = "#5a5a62"
+accent = "#bd93f9"
+accent_secondary = "#ff79c6"
+green = "#50fa7b"
+red = "#ff5555"
+orange = "#ffb86c"
+yellow = "#f1fa8c"
+cyan = "#8be9fd"
+blue = "#6272a4"
+purple = "#bd93f9"
+teal = "#8be9fd"
+comment = "#6272a4"
+
+[ui]
+bg = "bg"
+fg = "fg"
+bg_alt = "bg_alt"
+surface = "surface"
+surface_alt = "surface_alt"
+fg_muted = "fg_muted"
+fg_dim = "fg_dim"
+border_active = "accent"
+border_inactive = "fg_dim"
+selection_bg = { color = "accent", alpha = 0.3 }
+selection_fg = "fg"
+gutter_bg = "bg"
+gutter_fg = "fg_muted"
+status_bar_bg = "surface"
+status_bar_fg = "fg_muted"
+status_bar_mode_normal = "accent"
+status_bar_mode_insert = "green"
+status_bar_mode_visual = "accent_secondary"
+tab_active_underline = "accent_secondary"
+tab_inactive_fg = "fg_muted"
+cursor = "accent"
+error = "red"
+warning = "orange"
+success = "green"
+info = "cyan"
+hint = "fg_muted"
+git_added = "green"
+git_modified = "yellow"
+git_removed = "red"
+
+[syntax]
+keyword = { color = "accent_secondary", bold = true }
+function = { color = "green" }
+string = { color = "yellow" }
+comment = { color = "comment", italic = true }
+variable = { color = "fg" }
+type = { color = "cyan" }
+constant = { color = "orange" }
+operator = { color = "accent_secondary" }
+punctuation = { color = "fg" }
+number = { color = "orange" }
+parameter = { color = "accent_secondary" }
+property = { color = "cyan" }
+constructor = { color = "green" }

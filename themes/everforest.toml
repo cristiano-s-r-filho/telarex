@@ -1,0 +1,71 @@
+name = "Everforest"
+
+[metadata]
+author = "TelaRex Team"
+variant = "dark"
+
+[palette]
+bg = "#2d353b"
+bg_alt = "#272e33"
+surface = "#3a454c"
+surface_alt = "#47535b"
+fg = "#d3c6aa"
+fg_muted = "#859289"
+fg_dim = "#5a6868"
+accent = "#a7c080"
+accent_secondary = "#7fbbb3"
+green = "#a7c080"
+red = "#e67e80"
+orange = "#e69875"
+yellow = "#dbbc7f"
+cyan = "#83c092"
+blue = "#7fbbb3"
+purple = "#d699b6"
+teal = "#83c092"
+comment = "#5a6868"
+
+[ui]
+bg = "bg"
+fg = "fg"
+bg_alt = "bg_alt"
+surface = "surface"
+surface_alt = "surface_alt"
+fg_muted = "fg_muted"
+fg_dim = "fg_dim"
+border_active = "accent"
+border_inactive = "fg_dim"
+selection_bg = { color = "accent", alpha = 0.3 }
+selection_fg = "fg"
+gutter_bg = "bg"
+gutter_fg = "fg_muted"
+status_bar_bg = "surface"
+status_bar_fg = "fg_muted"
+status_bar_mode_normal = "accent"
+status_bar_mode_insert = "green"
+status_bar_mode_visual = "accent_secondary"
+tab_active_underline = "accent"
+tab_inactive_fg = "fg_muted"
+cursor = "accent"
+error = "red"
+warning = "orange"
+success = "green"
+info = "cyan"
+hint = "fg_muted"
+git_added = "green"
+git_modified = "yellow"
+git_removed = "red"
+
+[syntax]
+keyword = { color = "red", bold = true }
+function = { color = "accent" }
+string = { color = "green" }
+comment = { color = "comment", italic = true }
+variable = { color = "fg" }
+type = { color = "yellow" }
+constant = { color = "orange" }
+operator = { color = "teal" }
+punctuation = { color = "fg" }
+number = { color = "orange" }
+parameter = { color = "red" }
+property = { color = "cyan" }
+constructor = { color = "yellow" }
