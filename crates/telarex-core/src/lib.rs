@@ -3,6 +3,7 @@
 pub mod buffer;
 pub mod clipboard;
 pub mod command;
+pub mod git_sidecar;
 pub mod config;
 pub mod crdt;
 pub mod syntax;

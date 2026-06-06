@@ -12,9 +12,10 @@ name = "trex"
 path = "src/main.rs"
 
 [features]
-default = ["lsp", "clipboard"]
+default = ["lsp", "clipboard", "git"]
 lsp = ["telarex-core/lsp"]
 clipboard = ["telarex-core/clipboard"]
+git = ["telarex-core/git"]
 unstable = []
 
 [dependencies]

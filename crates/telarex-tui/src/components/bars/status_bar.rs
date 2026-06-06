@@ -20,6 +20,8 @@ pub struct StatusBar {
     pub lodge_status: String,
     pub peer_count: usize,
     pub username: String,
+    pub git_branch: Option<String>,
+    pub git_dirty: usize,
 }
 
 impl Default for StatusBar {
@@ -35,6 +37,8 @@ impl Default for StatusBar {
             lodge_status: "Offline".to_string(),
             peer_count: 0,
             username: "User".to_string(),
+            git_branch: None,
+            git_dirty: 0,
         }
     }
 }
@@ -48,18 +52,26 @@ impl Component for StatusBar {
         frame.render_widget(Clear, area);
         
         let layout = Layout::horizontal([
-            Constraint::Fill(1), // Path & Mode
+            Constraint::Fill(1), // Path & Mode & Git
             Constraint::Length(45), // Lodge & Connectivity
             Constraint::Length(30), // Cursor & User
         ]).split(area);
 
-        // 1. Path & Mode Pill
+        // 1. Path & Mode & Git Pill
         let path = self.file_path.as_deref().unwrap_or("Untitled");
         let mod_marker = if self.modified { " ●" } else { "" };
+        let git_pill = self.git_branch.as_ref().map(|b| {
+            if self.git_dirty > 0 {
+                format!(" {} +{} ", b, self.git_dirty)
+            } else {
+                format!(" {} ", b)
+            }
+        }).unwrap_or_default();
         let left_pill = Line::from(vec![
             Span::styled(format!(" {} ", self.editor_mode), Style::default().bg(Color::Blue).fg(Color::Black).add_modifier(Modifier::BOLD)),
             Span::raw(format!(" {} ", path)),
             Span::styled(mod_marker, Style::default().fg(Color::Yellow)),
+            Span::styled(git_pill, Style::default().fg(Color::DarkGray).bg(Color::Rgb(30, 30, 30))),
         ]);
         frame.render_widget(Paragraph::new(left_pill).block(Block::default().padding(Padding::new(1, 0, 0, 0))), layout[0]);
 

@@ -44,6 +44,6 @@ This roadmap outlines the path to a stable, user-ready Beta release of TelaRex. 
 
 ## 6. Implementation Stages
 1. **Stage 1**: ✅ "Shield" pass — all 90 tests written.
-2. **Stage 2**: "Clean House" (Resolve all remaining TUI logic quirks).
+2. **Stage 2**: ✅ "Clean House" — 6 TUI logic quirks resolved (split ratio, event latency, panic safety, keyboard cleanup, gitignore, theme accessor).
 3. **Stage 3**: "Git Sidecar" (Implement manual Git commit/push actions).
 4. **Stage 4**: Final Bento Polish & Documentation.

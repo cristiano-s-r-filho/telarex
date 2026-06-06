@@ -10,6 +10,12 @@ pub enum Command {
     LeaveWorkspace,
     DisconnectNetwork,
     ResetData,
+    GitStatus,
+    GitStageAll,
+    GitCommit,
+    GitPush,
+    GitPull,
+    GitLog,
 }
 
 impl Command {
@@ -23,6 +29,12 @@ impl Command {
             Command::LeaveWorkspace,
             Command::DisconnectNetwork,
             Command::ResetData,
+            Command::GitStatus,
+            Command::GitStageAll,
+            Command::GitCommit,
+            Command::GitPush,
+            Command::GitPull,
+            Command::GitLog,
             Command::Quit,
         ]
     }
@@ -39,6 +51,12 @@ impl Command {
             Command::LeaveWorkspace => "Leave Lodge",
             Command::DisconnectNetwork => "Disconnect from Network",
             Command::ResetData => "Reset Application Data",
+            Command::GitStatus => "Git Status",
+            Command::GitStageAll => "Git Stage All",
+            Command::GitCommit => "Git Commit",
+            Command::GitPush => "Git Push",
+            Command::GitPull => "Git Pull",
+            Command::GitLog => "Git Log",
         }
     }
 
@@ -54,6 +72,12 @@ impl Command {
             Command::LeaveWorkspace => "Stop sharing or exit current lodge",
             Command::DisconnectNetwork => "Shutdown all peer-to-peer connectivity",
             Command::ResetData => "Wipe all local configuration and database records",
+            Command::GitStatus => "Show working tree status in the log",
+            Command::GitStageAll => "Stage all changes for commit",
+            Command::GitCommit => "Commit staged changes with a message",
+            Command::GitPush => "Push commits to remote origin",
+            Command::GitPull => "Fetch and merge from remote origin",
+            Command::GitLog => "Show recent commit history",
         }
     }
 }

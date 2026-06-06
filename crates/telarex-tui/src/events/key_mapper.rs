@@ -71,7 +71,12 @@ impl KeyMapper {
             }
         }
 
-        // 3. Fallback for character keys (Never swallow them)
+        // Git status (Ctrl+g)
+        if key.modifiers.contains(KeyModifiers::CONTROL) && !key.modifiers.contains(KeyModifiers::ALT) && key.code == KeyCode::Char('g') {
+            return Some(UIAction::Core(telarex_core::command::Command::GitStatus));
+        }
+
+        // 4. Fallback for character keys (Never swallow them)
         if let KeyCode::Char(_) = key.code {
              // AltGr (reported as Ctrl+Alt) should NOT trigger shortcuts
              let is_strictly_control = key.modifiers.contains(KeyModifiers::CONTROL) && !key.modifiers.contains(KeyModifiers::ALT);
@@ -149,6 +154,12 @@ fn parse_action(s: &str) -> Option<UIAction> {
         "ExitMode" => Some(UIAction::ExitMode),
         "LeaveLodge" => Some(UIAction::LeaveWorkspace),
         "Disconnect" => Some(UIAction::DisconnectNetwork),
+        "GitStatus" => Some(UIAction::Core(Command::GitStatus)),
+        "GitStageAll" => Some(UIAction::Core(Command::GitStageAll)),
+        "GitCommit" => Some(UIAction::Core(Command::GitCommit)),
+        "GitPush" => Some(UIAction::Core(Command::GitPush)),
+        "GitPull" => Some(UIAction::Core(Command::GitPull)),
+        "GitLog" => Some(UIAction::Core(Command::GitLog)),
         _ => None,
     }
 }
@@ -218,7 +229,7 @@ mod tests {
 
     #[test]
     fn test_parse_action_all() {
-        let map: [(&str, UIAction); 15] = [
+        let map: [(&str, UIAction); 21] = [
             ("Quit", UIAction::Quit),
             ("Save", UIAction::Core(telarex_core::command::Command::Save)),
             ("OpenFile", UIAction::Core(telarex_core::command::Command::OpenFile)),
@@ -234,6 +245,12 @@ mod tests {
             ("ExitMode", UIAction::ExitMode),
             ("LeaveLodge", UIAction::LeaveWorkspace),
             ("Disconnect", UIAction::DisconnectNetwork),
+            ("GitStatus", UIAction::Core(telarex_core::command::Command::GitStatus)),
+            ("GitStageAll", UIAction::Core(telarex_core::command::Command::GitStageAll)),
+            ("GitCommit", UIAction::Core(telarex_core::command::Command::GitCommit)),
+            ("GitPush", UIAction::Core(telarex_core::command::Command::GitPush)),
+            ("GitPull", UIAction::Core(telarex_core::command::Command::GitPull)),
+            ("GitLog", UIAction::Core(telarex_core::command::Command::GitLog)),
         ];
         for (s, expected) in &map {
             assert_eq!(parse_action(s), Some(expected.clone()), "failed for {}", s);

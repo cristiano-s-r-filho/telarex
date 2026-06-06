@@ -43,6 +43,8 @@ pub struct EditorView {
     pub share_lodge_modal: InputModal,
     file_to_open: Option<std::path::PathBuf>,
     pub mode: String,
+    git_sidecar: Option<telarex_core::git_sidecar::GitSidecar>,
+    pending_git_commit: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -57,6 +59,7 @@ impl EditorView {
         let file_tree = FileTree::new();
         let workspace = Workspace::new(file_tree.root.clone());
         let config = telarex_core::config::load(None).unwrap_or_default();
+        let git_sidecar = telarex_core::git_sidecar::GitSidecar::open(&file_tree.root).ok();
         let mut view = Self {
             workspace, file_tree,
             tabs: TabController::new(editor),
@@ -81,7 +84,10 @@ impl EditorView {
             share_lodge_modal: InputModal::new("Enter Lodge Name"),
             file_to_open: None,
             mode: "normal".to_string(),
+            git_sidecar,
+            pending_git_commit: None,
         };
+        view.sync_git_status();
         view.update_focus_state();
         view
     }
@@ -210,6 +216,15 @@ impl EditorView {
         self.tabs.sync_focus(self.focused_child == FocusTarget::Editor);
     }
 
+    fn sync_git_status(&mut self) {
+        if let Some(ref git) = self.git_sidecar {
+            if let Ok(status) = git.status() {
+                self.status_bar.git_branch = Some(status.branch);
+                self.status_bar.git_dirty = status.modified + status.untracked + status.staged;
+            }
+        }
+    }
+
     pub fn set_network_tx(&mut self, tx: mpsc::Sender<NetworkCommand>) {
         self.network_tx = Some(tx);
     }
@@ -256,8 +271,43 @@ impl EditorView {
             Command::LeaveWorkspace => { self.handle_action(UIAction::LeaveWorkspace, ctx); }
             Command::DisconnectNetwork => { self.handle_action(UIAction::DisconnectNetwork, ctx); }
             Command::ResetData => { self.reset_requested = true; }
-            _ => {}
+            Command::GitStatus => { self.sync_git_status(); }
+            Command::GitStageAll => {
+                if let Some(ref git) = self.git_sidecar {
+                    let _ = git.stage_all();
+                }
+                self.sync_git_status();
+            }
+            Command::GitCommit => {
+                if self.git_sidecar.is_some() {
+                    self.share_lodge_modal.title = "Commit message".to_string();
+                    self.share_lodge_modal.show();
+                }
+            }
+            Command::GitPush => {
+                if let Some(ref git) = self.git_sidecar {
+                    let branch = git.status().ok().map(|s| s.branch).unwrap_or_else(|| "main".to_string());
+                    let _ = git.push("origin", &branch);
+                }
+            }
+            Command::GitPull => {
+                if let Some(ref git) = self.git_sidecar {
+                    let _ = git.fetch("origin");
+                }
+            }
+            Command::GitLog => {
+                if let Some(ref git) = self.git_sidecar {
+                    if let Ok(commits) = git.log(10) {
+                        for c in &commits {
+                            log::info!("GIT {}: {} by {}", &c.oid[..8], c.message.trim(), c.author);
+                        }
+                    }
+                }
+            }
         }
+        self.sync_status_bar();
+        self.sync_command_palette_on_close();
+    }
         self.sync_status_bar();
     }
 
@@ -436,7 +486,20 @@ impl Component for EditorView {
         }
 
         if self.share_lodge_modal.active {
-            return self.share_lodge_modal.handle_event(event, ctx);
+            let result = self.share_lodge_modal.handle_event(event, ctx);
+            if !self.share_lodge_modal.active && self.share_lodge_modal.title == "Commit message" && !self.share_lodge_modal.value.is_empty() {
+                self.pending_git_commit = Some(self.share_lodge_modal.value.clone());
+                self.share_lodge_modal.value.clear();
+            }
+            return result;
+        }
+
+        if let Some(msg) = self.pending_git_commit.take() {
+            if let Some(ref git) = self.git_sidecar {
+                let _ = git.stage_all();
+                let _ = git.commit(&msg);
+                log::info!("Git commit: {}", msg);
+            }
         }
 
         let cmd_action = if self.command_palette.borrow().active {

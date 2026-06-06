@@ -11,6 +11,7 @@ rust-version.workspace = true
 default = []
 lsp = []
 clipboard = ["arboard"]
+git = ["git2"]
 proptest = ["proptest"]
 
 [dependencies]
@@ -41,6 +42,7 @@ libp2p = { workspace = true, features = ["gossipsub", "mdns", "noise", "tcp", "y
 futures = { workspace = true }
 pqc_dilithium = { workspace = true }
 arboard = { workspace = true, optional = true }
+git2 = { workspace = true, optional = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }
