@@ -282,3 +282,140 @@ impl Component for LayoutTree {
         self.handle_event(event, ctx)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn single_pane_tree() -> LayoutTree {
+        LayoutTree::new(Editor::new())
+    }
+
+    fn split_tree() -> LayoutTree {
+        let mut tree = LayoutTree::new(Editor::new());
+        let id = tree.active_pane;
+        tree.split_pane(id, Direction::Horizontal);
+        tree
+    }
+
+    #[test]
+    fn test_new_tree_has_one_pane() {
+        let tree = single_pane_tree();
+        assert_eq!(tree.nodes.len(), 1);
+        assert!(matches!(tree.nodes[0].kind, NodeKind::Pane(_)));
+    }
+
+    #[test]
+    fn test_split_pane_creates_two_children() {
+        let mut tree = single_pane_tree();
+        let id = tree.active_pane;
+        tree.split_pane(id, Direction::Horizontal);
+
+        assert_eq!(tree.nodes.len(), 3);
+        assert!(matches!(tree.nodes[0].kind, NodeKind::Split));
+        assert_eq!(tree.nodes[0].children.len(), 2);
+    }
+
+    #[test]
+    fn test_split_pane_sets_active_to_new_pane() {
+        let mut tree = single_pane_tree();
+        let original = tree.active_pane;
+        tree.split_pane(original, Direction::Horizontal);
+
+        let last_idx = tree.nodes.len() - 1;
+        assert_eq!(tree.active_pane, tree.nodes[last_idx].id);
+    }
+
+    #[test]
+    fn test_close_pane_with_single_pane_noop() {
+        let mut tree = single_pane_tree();
+        let id = tree.active_pane;
+        tree.close_pane(id);
+
+        assert_eq!(tree.nodes.len(), 1);
+    }
+
+    #[test]
+    fn test_navigate_between_split_panes() {
+        let mut tree = split_tree();
+        let left_id = tree.active_pane;
+
+        tree.navigate(NavDir::Right);
+        let right_id = tree.active_pane;
+        assert_ne!(left_id, right_id);
+
+        tree.navigate(NavDir::Left);
+        assert_eq!(tree.active_pane, left_id);
+    }
+
+    #[test]
+    fn test_sync_focus_activates_only_active_pane() {
+        let mut tree = split_tree();
+        let original = tree.active_pane;
+
+        tree.split_pane(original, Direction::Horizontal);
+        let new_id = tree.active_pane;
+
+        tree.sync_focus(true);
+
+        for node in &tree.nodes {
+            if let NodeKind::Pane(editor) = &node.kind {
+                let focused = *editor.focused.borrow();
+                if node.id == new_id {
+                    assert!(focused, "active pane should be focused");
+                } else {
+                    assert!(!focused, "inactive pane should not be focused");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_sync_focus_unfocused_when_group_unfocused() {
+        let mut tree = split_tree();
+        tree.sync_focus(false);
+
+        for node in &tree.nodes {
+            if let NodeKind::Pane(editor) = &node.kind {
+                assert!(!*editor.focused.borrow());
+            }
+        }
+    }
+
+    #[test]
+    fn test_compute_rects_returns_all_panes() {
+        let tree = split_tree();
+        let area = Rect::new(0, 0, 100, 50);
+        let rects = tree.compute_rects(area);
+
+        let pane_count = tree.nodes.iter().filter(|n| matches!(n.kind, NodeKind::Pane(_))).count();
+        assert_eq!(rects.len(), pane_count);
+    }
+
+    #[test]
+    fn test_navigate_noop_when_single_pane() {
+        let mut tree = single_pane_tree();
+        let id = tree.active_pane;
+
+        tree.navigate(NavDir::Left);
+        tree.navigate(NavDir::Right);
+        tree.navigate(NavDir::Up);
+        tree.navigate(NavDir::Down);
+
+        assert_eq!(tree.active_pane, id);
+    }
+
+    #[test]
+    fn test_close_pane_merges_into_parent() {
+        let mut tree = split_tree();
+        let right_id = tree.active_pane;
+
+        tree.navigate(NavDir::Left);
+        let left_id = tree.active_pane;
+
+        tree.close_pane(right_id);
+        assert!(tree.nodes.iter().any(|n| n.id == left_id));
+        let pane_count = tree.nodes.iter().filter(|n| matches!(n.kind, NodeKind::Pane(_))).count();
+        assert_eq!(pane_count, 1);
+    }
+}

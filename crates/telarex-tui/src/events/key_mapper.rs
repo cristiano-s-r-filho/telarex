@@ -152,3 +152,154 @@ fn parse_action(s: &str) -> Option<UIAction> {
         _ => None,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+    use crossterm::event::{KeyCode, KeyModifiers, KeyEvent, KeyEventKind};
+
+    fn make_key(code: KeyCode, mods: KeyModifiers) -> KeyEvent {
+        let mut k = KeyEvent::new(code, mods);
+        k.kind = KeyEventKind::Press;
+        k
+    }
+
+    fn mapper() -> KeyMapper {
+        let config = KeymapConfig::default_mappings();
+        KeyMapper::from_config(&config)
+    }
+
+    #[test]
+    fn test_parse_key_event_simple_char() {
+        let result = parse_key_event("a").unwrap();
+        assert_eq!(result.code, KeyCode::Char('a'));
+        assert_eq!(result.modifiers, KeyModifiers::NONE);
+    }
+
+    #[test]
+    fn test_parse_key_event_ctrl() {
+        let result = parse_key_event("ctrl-s").unwrap();
+        assert_eq!(result.code, KeyCode::Char('s'));
+        assert!(result.modifiers.contains(KeyModifiers::CONTROL));
+    }
+
+    #[test]
+    fn test_parse_key_event_ctrl_shift() {
+        let result = parse_key_event("ctrl-shift-p").unwrap();
+        assert_eq!(result.code, KeyCode::Char('p'));
+        assert!(result.modifiers.contains(KeyModifiers::CONTROL));
+        assert!(result.modifiers.contains(KeyModifiers::SHIFT));
+    }
+
+    #[test]
+    fn test_parse_key_event_named() {
+        let tests = [
+            ("enter", KeyCode::Enter),
+            ("esc", KeyCode::Esc),
+            ("tab", KeyCode::Tab),
+            ("backspace", KeyCode::Backspace),
+            ("up", KeyCode::Up),
+            ("down", KeyCode::Down),
+            ("left", KeyCode::Left),
+            ("right", KeyCode::Right),
+        ];
+        for (s, expected) in &tests {
+            let result = parse_key_event(s).unwrap();
+            assert_eq!(result.code, *expected, "failed for {}", s);
+        }
+    }
+
+    #[test]
+    fn test_parse_key_event_invalid() {
+        assert!(parse_key_event("").is_none());
+        assert!(parse_key_event("ctrl-").is_none());
+    }
+
+    #[test]
+    fn test_parse_action_all() {
+        let map: [(&str, UIAction); 15] = [
+            ("Quit", UIAction::Quit),
+            ("Save", UIAction::Core(telarex_core::command::Command::Save)),
+            ("OpenFile", UIAction::Core(telarex_core::command::Command::OpenFile)),
+            ("EnterCommandMode", UIAction::EnterCommandMode),
+            ("EnterSearchMode", UIAction::EnterSearchMode),
+            ("ToggleExplorer", UIAction::ToggleExplorer),
+            ("SwitchFocus", UIAction::SwitchFocus),
+            ("Copy", UIAction::Copy),
+            ("Paste", UIAction::Paste),
+            ("NextTab", UIAction::NextTab),
+            ("PrevTab", UIAction::PrevTab),
+            ("NewTab", UIAction::NewTab),
+            ("ExitMode", UIAction::ExitMode),
+            ("LeaveLodge", UIAction::LeaveWorkspace),
+            ("Disconnect", UIAction::DisconnectNetwork),
+        ];
+        for (s, expected) in &map {
+            assert_eq!(parse_action(s), Some(expected.clone()), "failed for {}", s);
+        }
+        assert_eq!(parse_action("Unknown"), None);
+    }
+
+    #[test]
+    fn test_resolve_ctrl_p_opens_command_mode() {
+        let m = mapper();
+        let key = make_key(KeyCode::Char('p'), KeyModifiers::CONTROL);
+        let action = m.resolve(key, "normal", Some("editor"));
+        assert_eq!(action, Some(UIAction::EnterCommandMode));
+    }
+
+    #[test]
+    fn test_resolve_ctrl_s_saves() {
+        let m = mapper();
+        let key = make_key(KeyCode::Char('s'), KeyModifiers::CONTROL);
+        let action = m.resolve(key, "normal", Some("editor"));
+        assert_eq!(action, Some(UIAction::Core(telarex_core::command::Command::Save)));
+    }
+
+    #[test]
+    fn test_resolve_window_mode() {
+        let m = mapper();
+        let v = make_key(KeyCode::Char('v'), KeyModifiers::NONE);
+        assert_eq!(m.resolve(v, "window", None), Some(UIAction::SplitVertical));
+
+        let h = make_key(KeyCode::Char('h'), KeyModifiers::NONE);
+        assert_eq!(m.resolve(h, "window", None), Some(UIAction::FocusLeft));
+    }
+
+    #[test]
+    fn test_resolve_window_mode_unknown_exits() {
+        let m = mapper();
+        let q = make_key(KeyCode::Char('q'), KeyModifiers::NONE);
+        assert_eq!(m.resolve(q, "window", None), Some(UIAction::ExitMode));
+    }
+
+    #[test]
+    fn test_resolve_raw_char_passthrough() {
+        let m = mapper();
+        let a = make_key(KeyCode::Char('x'), KeyModifiers::NONE);
+        assert_eq!(m.resolve(a, "normal", Some("editor")), None);
+    }
+
+    #[test]
+    fn test_resolve_ignores_release_events() {
+        let m = mapper();
+        let mut key = KeyEvent::new(KeyCode::Char('p'), KeyModifiers::CONTROL);
+        key.kind = KeyEventKind::Release;
+        assert_eq!(m.resolve(key, "normal", Some("editor")), None);
+    }
+
+    #[test]
+    fn test_resolve_explorer_mode() {
+        let m = mapper();
+        let key = make_key(KeyCode::Char('e'), KeyModifiers::CONTROL);
+        assert_eq!(m.resolve(key, "normal", Some("editor")), Some(UIAction::SwitchFocus));
+    }
+
+    #[test]
+    fn test_resolve_toggle_explorer() {
+        let m = mapper();
+        let key = make_key(KeyCode::Char('b'), KeyModifiers::CONTROL);
+        assert_eq!(m.resolve(key, "normal", Some("editor")), Some(UIAction::ToggleExplorer));
+    }
+}

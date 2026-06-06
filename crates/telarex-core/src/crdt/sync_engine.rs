@@ -102,55 +102,202 @@ impl SyncEngine {
 mod tests {
     use super::*;
 
+    fn peer_from(engine: &SyncEngine, path: &PathBuf, idx: usize) -> ManagedDocument {
+        let docs = engine.documents.lock().unwrap();
+        let bytes = docs[idx].doc.save();
+        let doc = AutoCommit::load(&bytes).unwrap();
+        let (_, text_obj) = doc.get(automerge::ROOT, "content").unwrap().unwrap();
+        let (_, cursor_obj) = doc.get(automerge::ROOT, "cursors").unwrap().unwrap();
+        ManagedDocument {
+            path: path.clone(),
+            doc,
+            text_obj,
+            cursor_obj,
+        }
+    }
+
+    fn push_doc(engine: &SyncEngine, doc: ManagedDocument) {
+        engine.documents.lock().unwrap().push(doc);
+    }
+
+    fn sync_all(engines: &[&SyncEngine], path: &PathBuf) {
+        let n = engines.len();
+        let mut states: Vec<automerge::sync::State> = (0..n).map(|_| automerge::sync::State::new()).collect();
+
+        for _round in 0..10 {
+            let mut any = false;
+            for i in 0..n {
+                for j in 0..n {
+                    if i == j { continue; }
+                    if let Some(msg) = engines[i].generate_sync_message(path, &mut states[i]) {
+                        engines[j].receive_sync_message(path, &mut states[j], msg);
+                        any = true;
+                    }
+                }
+            }
+            if !any { break; }
+        }
+    }
+
+    fn converged(engines: &[&SyncEngine], path: &PathBuf) -> Vec<String> {
+        engines.iter().map(|e| e.get_content(path).unwrap_or_default()).collect()
+    }
+
     #[test]
-    fn test_sync_engine_consistency() {
-        let engine_a = SyncEngine::new();
-        let engine_b = SyncEngine::new();
-        let path = PathBuf::from("test.rs");
+    fn test_sync_one_way_initial() {
+        let a = SyncEngine::new();
+        let b = SyncEngine::new();
+        let path = PathBuf::from("a.rs");
 
-        engine_a.register_document(path.clone());
-        engine_a.apply_local_splice(&path, 0, 0, "Hello");
+        a.register_document(path.clone());
+        a.apply_local_splice(&path, 0, 0, "Hello");
+        push_doc(&b, peer_from(&a, &path, 0));
 
-        // Simulate Peer B joining by loading A's current state
-        {
-            let mut docs_a = engine_a.documents.lock().unwrap();
-            let bytes = docs_a[0].doc.save();
-            
-            let mut docs_b = engine_b.documents.lock().unwrap();
-            let doc_b = AutoCommit::load(&bytes).unwrap();
-            let (_, text_obj) = doc_b.get(automerge::ROOT, "content").unwrap().unwrap();
-            let (_, cursor_obj) = doc_b.get(automerge::ROOT, "cursors").unwrap().unwrap();
-            
-            docs_b.push(ManagedDocument {
-                path: path.clone(),
-                doc: doc_b,
-                text_obj,
-                cursor_obj,
-            });
+        assert_eq!(b.get_content(&path), Some("Hello".to_string()));
+    }
+
+    #[test]
+    fn test_sync_incremental() {
+        let a = SyncEngine::new();
+        let b = SyncEngine::new();
+        let path = PathBuf::from("b.rs");
+
+        a.register_document(path.clone());
+        a.apply_local_splice(&path, 0, 0, "Hello");
+        push_doc(&b, peer_from(&a, &path, 0));
+        a.apply_local_splice(&path, 5, 0, " World");
+
+        sync_all(&[&a, &b], &path);
+        let contents = converged(&[&a, &b], &path);
+        assert_eq!(contents[0], "Hello World");
+        assert_eq!(contents[0], contents[1]);
+    }
+
+    #[test]
+    fn test_three_way_concurrent_merge() {
+        let a = SyncEngine::new();
+        let b = SyncEngine::new();
+        let c = SyncEngine::new();
+        let path = PathBuf::from("three.rs");
+
+        a.register_document(path.clone());
+        a.apply_local_splice(&path, 0, 0, "base");
+        push_doc(&b, peer_from(&a, &path, 0));
+        push_doc(&c, peer_from(&a, &path, 0));
+
+        a.apply_local_splice(&path, 4, 0, " AAA");
+        b.apply_local_splice(&path, 4, 0, " BBB");
+        c.apply_local_splice(&path, 4, 0, " CCC");
+
+        sync_all(&[&a, &b, &c], &path);
+        let contents = converged(&[&a, &b, &c], &path);
+        assert_eq!(contents[0], contents[1]);
+        assert_eq!(contents[1], contents[2]);
+        assert!(contents[0].contains("AAA"));
+        assert!(contents[0].contains("BBB"));
+        assert!(contents[0].contains("CCC"));
+    }
+
+    #[test]
+    fn test_concurrent_insert_same_position() {
+        let a = SyncEngine::new();
+        let b = SyncEngine::new();
+        let path = PathBuf::from("conflict.rs");
+
+        a.register_document(path.clone());
+        a.apply_local_splice(&path, 0, 0, "[]");
+        push_doc(&b, peer_from(&a, &path, 0));
+
+        a.apply_local_splice(&path, 1, 0, "AAA");
+        b.apply_local_splice(&path, 1, 0, "BBB");
+
+        sync_all(&[&a, &b], &path);
+        let contents = converged(&[&a, &b], &path);
+        assert_eq!(contents[0], contents[1]);
+        assert!(contents[0].contains("AAA"));
+        assert!(contents[0].contains("BBB"));
+    }
+
+    #[test]
+    fn test_concurrent_delete_and_insert() {
+        let a = SyncEngine::new();
+        let b = SyncEngine::new();
+        let path = PathBuf::from("delins.rs");
+
+        a.register_document(path.clone());
+        a.apply_local_splice(&path, 0, 0, "Hello World");
+        push_doc(&b, peer_from(&a, &path, 0));
+
+        a.apply_local_splice(&path, 6, 5, "");
+        b.apply_local_splice(&path, 11, 0, "!!!");
+
+        sync_all(&[&a, &b], &path);
+        let contents = converged(&[&a, &b], &path);
+        assert_eq!(contents[0], contents[1]);
+    }
+
+    #[test]
+    fn test_causal_delivery_chain() {
+        let a = SyncEngine::new();
+        let b = SyncEngine::new();
+        let c = SyncEngine::new();
+        let path = PathBuf::from("causal.rs");
+
+        a.register_document(path.clone());
+        a.apply_local_splice(&path, 0, 0, "");
+        push_doc(&b, peer_from(&a, &path, 0));
+
+        a.apply_local_splice(&path, 0, 0, "alpha-");
+        sync_all(&[&a, &b], &path);
+
+        b.apply_local_splice(&path, 6, 0, "beta-");
+        push_doc(&c, peer_from(&b, &path, 0));
+
+        sync_all(&[&a, &b, &c], &path);
+        let contents = converged(&[&a, &b, &c], &path);
+        assert_eq!(contents[0], contents[1]);
+        assert_eq!(contents[1], contents[2]);
+        assert!(contents[0].contains("alpha"));
+    }
+
+    #[test]
+    fn test_cursor_sync() {
+        let a = SyncEngine::new();
+        let b = SyncEngine::new();
+        let path = PathBuf::from("cursor.rs");
+
+        a.register_document(path.clone());
+        a.apply_local_splice(&path, 0, 0, "Hello World");
+        push_doc(&b, peer_from(&a, &path, 0));
+
+        a.update_cursor(&path, "peer_a", 3);
+        sync_all(&[&a, &b], &path);
+
+        let cursors = b.get_cursors(&path);
+        assert_eq!(cursors.get("peer_a"), Some(&3));
+    }
+
+    #[test]
+    fn test_many_rounds_convergence() {
+        let a = SyncEngine::new();
+        let b = SyncEngine::new();
+        let path = PathBuf::from("stress.rs");
+
+        a.register_document(path.clone());
+        a.apply_local_splice(&path, 0, 0, "");
+        push_doc(&b, peer_from(&a, &path, 0));
+
+        for i in 0..20 {
+            a.apply_local_splice(&path, i as usize, 0, &char::from(b'a' + (i % 26) as u8).to_string());
+        }
+        for i in 0..15 {
+            b.apply_local_splice(&path, i as usize, 0, &char::from(b'A' + (i % 26) as u8).to_string());
         }
 
-        assert_eq!(engine_b.get_content(&path), Some("Hello".to_string()));
-
-        // Test incremental sync
-        engine_a.apply_local_splice(&path, 5, 0, " World");
-        
-        let mut state_a = automerge::sync::State::new();
-        let mut state_b = automerge::sync::State::new();
-        
-        loop {
-            let mut changed = false;
-            if let Some(msg) = engine_a.generate_sync_message(&path, &mut state_a) {
-                engine_b.receive_sync_message(&path, &mut state_b, msg);
-                changed = true;
-            }
-            if let Some(msg) = engine_b.generate_sync_message(&path, &mut state_b) {
-                engine_a.receive_sync_message(&path, &mut state_a, msg);
-                changed = true;
-            }
-            if !changed { break; }
-        }
-
-        assert_eq!(engine_b.get_content(&path), Some("Hello World".to_string()));
+        sync_all(&[&a, &b], &path);
+        let contents = converged(&[&a, &b], &path);
+        assert_eq!(contents[0], contents[1]);
+        assert!(contents[0].len() >= 35);
     }
 }
 

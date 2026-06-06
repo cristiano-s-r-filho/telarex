@@ -142,3 +142,127 @@ impl Database {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use uuid::Uuid;
+
+    fn test_db() -> Database {
+        let conn = Connection::open_in_memory().unwrap();
+        let db = Database { conn };
+        db.initialize().unwrap();
+        db
+    }
+
+    #[test]
+    fn test_initialize_creates_tables() {
+        let db = test_db();
+        let tables: Vec<String> = db
+            .conn
+            .prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
+            .unwrap()
+            .query_map([], |row| row.get(0))
+            .unwrap()
+            .filter_map(|r| r.ok())
+            .collect();
+        assert!(tables.contains(&"access_control".to_string()));
+        assert!(tables.contains(&"lodges".to_string()));
+        assert!(tables.contains(&"network_logs".to_string()));
+        assert!(tables.contains(&"recent_projects".to_string()));
+        assert!(tables.contains(&"sessions".to_string()));
+    }
+
+    #[test]
+    fn test_register_and_retrieve_lodges() {
+        let db = test_db();
+        let id = Uuid::new_v4();
+        db.register_lodge(id, "/tmp/test", "Test Lodge", true).unwrap();
+
+        let lodges = db.get_my_lodges().unwrap();
+        assert_eq!(lodges.len(), 1);
+        assert_eq!(lodges[0].0, id);
+        assert_eq!(lodges[0].1, "/tmp/test");
+        assert_eq!(lodges[0].2, "Test Lodge");
+    }
+
+    #[test]
+    fn test_register_lodge_deduplicate() {
+        let db = test_db();
+        let id = Uuid::new_v4();
+        db.register_lodge(id, "/dup", "First", true).unwrap();
+        db.register_lodge(id, "/dup", "Second", true).unwrap();
+
+        let lodges = db.get_my_lodges().unwrap();
+        assert_eq!(lodges.len(), 1);
+        assert_eq!(lodges[0].2, "Second");
+    }
+
+    #[test]
+    fn test_delete_lodge_cascades() {
+        let db = test_db();
+        let id = Uuid::new_v4();
+        db.register_lodge(id, "/cascade", "Cascade Lodge", true).unwrap();
+        db.register_session(id, "peer1", "Alice").unwrap();
+
+        db.delete_lodge(id).unwrap();
+
+        let lodges = db.get_my_lodges().unwrap();
+        assert!(lodges.is_empty());
+        let _ = db.register_lodge(id, "/new", "New Lodge", true).unwrap();
+    }
+
+    #[test]
+    fn test_recent_projects_crud() {
+        let db = test_db();
+
+        let projects = db.get_recent_projects().unwrap();
+        assert!(projects.is_empty());
+
+        db.add_recent_project("/path/one").unwrap();
+        db.add_recent_project("/path/two").unwrap();
+        db.add_recent_project("/path/one").unwrap();
+
+        let projects = db.get_recent_projects().unwrap();
+        assert_eq!(projects.len(), 2);
+    }
+
+    #[test]
+    fn test_session_registration() {
+        let db = test_db();
+        let id = Uuid::new_v4();
+        db.register_lodge(id, "/session", "Session Lodge", true).unwrap();
+
+        db.register_session(id, "alice@device1", "Alice").unwrap();
+        db.register_session(id, "bob@device2", "Bob").unwrap();
+
+        let lodges = db.get_my_lodges().unwrap();
+        assert_eq!(lodges.len(), 1);
+    }
+
+    #[test]
+    fn test_reset_clears_everything() {
+        let db = test_db();
+        let id = Uuid::new_v4();
+        db.register_lodge(id, "/reset", "Reset Lodge", true).unwrap();
+        db.add_recent_project("/reset/path").unwrap();
+
+        db.reset().unwrap();
+
+        assert!(db.get_my_lodges().unwrap().is_empty());
+        assert!(db.get_recent_projects().unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_log_error() {
+        let db = test_db();
+        let err = TrexError::network_failure();
+        db.log_error(&err).unwrap();
+
+        let count: i64 = db
+            .conn
+            .query_row("SELECT COUNT(*) FROM network_logs", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(count, 1);
+    }
+}

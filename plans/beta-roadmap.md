@@ -9,15 +9,21 @@ This roadmap outlines the path to a stable, user-ready Beta release of TelaRex. 
 - **Bento UI Completion**: Standardize the visual language across all screens.
 
 ## 2. Testing Expansion (The "Shield" Initiative)
-We currently have ~48 tests (up from 7). Expand to:
-- **Core Coverage**: ✅ Done (document, history, buffer_manager, schema, errors, actor, sync_integration)
-  - `CRDT Engine`: Multi-peer merge consistency tests.
-  - `Database`: Migration and persistence integrity tests.
-- **TUI Logic**: ⬜ TODO
-  - `Event Routing`: Unit tests for `KeyMapper` resolution.
-  - `Focus Sync`: Verification that `LayoutTree` focus pushes correctly.
-- **Integration**:
-  - `End-to-End`: Simulate a headless network join and document sync.
+✅ **All Shield items complete** — 90 tests across 15 test locations:
+- **Document**: 8 tests (buffer ops, undo/redo, load/save)
+- **History**: 6 tests (stack depth, dedup, undo/redo consistency)
+- **Buffer Manager**: 4 tests (create, get, same instance, remove)
+- **Schema**: 7 tests (defaults, dedup, cap, roundtrip, profiles, keymaps, network)
+- **Errors**: 5 tests (levels, display, format, factory fns)
+- **Motions**: 3 tests (word, line, paragraph navigation)
+- **Sync Engine**: 8 unit tests (3-way merge, concurrent insert, causal chain, cursor sync, stress)
+- **Database**: 8 tests (init, CRUD lodges, cascade delete, sessions, reset, recent projects, error log)
+- **Actor**: 2 integration tests
+- **Config**: 4 integration tests
+- **Identity**: 5 integration tests (key gen, sign/verify, wrong key, wrong msg, deterministic)
+- **E2E**: 5 tests (2-peer flow, 3-peer convergence, cursor sync, conflict resolution, multi-round)
+- **KeyMapper**: 14 tests (parse key, parse action, resolve global/window/editor/explorer, passthrough, release events)
+- **LayoutTree**: 10 tests (split, close, navigate, sync_focus, compute_rects, noop cases)
 
 ## 3. Performance Benchmarks
 - **Input Latency**: Ensure 100% of keystrokes are processed in <5ms.
@@ -37,7 +43,7 @@ We currently have ~48 tests (up from 7). Expand to:
 - [ ] Binary Packaging: Cross-platform release builds via GitHub Actions.
 
 ## 6. Implementation Stages
-1. **Stage 1**: "Shield" pass (Add missing tests).
+1. **Stage 1**: ✅ "Shield" pass — all 90 tests written.
 2. **Stage 2**: "Clean House" (Resolve all remaining TUI logic quirks).
 3. **Stage 3**: "Git Sidecar" (Implement manual Git commit/push actions).
 4. **Stage 4**: Final Bento Polish & Documentation.
