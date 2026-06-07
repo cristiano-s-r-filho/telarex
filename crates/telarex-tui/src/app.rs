@@ -13,7 +13,7 @@ use tokio::sync::mpsc;
 use uuid::Uuid;
 use std::collections::HashMap;
 
-use telarex_core::workspace::{PendingJoin, WorkspaceMember};
+use telarex_core::workspace::PendingJoin;
 use crate::theme::Theme;
 
 /// Top-level screen the application is currently displaying.
@@ -242,7 +242,7 @@ impl App {
                         self.welcome.discovered_lodges.push(DiscoveredLodge { id, name, peer_id });
                     }
                 }
-                NetworkEvent::JoinRequest { lodge_id, peer_id, username, public_key } => {
+                NetworkEvent::JoinRequest { lodge_id: _, peer_id, username, public_key } => {
                     self.editor.workspace.add_pending_join(peer_id, username.clone(), public_key);
                     self.show_info(&format!("Pending join request from {}", username));
                 }
