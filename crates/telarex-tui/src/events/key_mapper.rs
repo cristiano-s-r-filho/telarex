@@ -58,9 +58,11 @@ impl KeyMapper {
             }
         }
 
-        // 3. Alt Layer — various secondary bindings
+        // 3. Alt Layer — tab navigation, secondary bindings
         if key.modifiers.contains(KeyModifiers::ALT) && !key.modifiers.contains(KeyModifiers::CONTROL) {
             match key.code {
+                KeyCode::Char('[') => return Some(UIAction::PrevTab),
+                KeyCode::Char(']') => return Some(UIAction::NextTab),
                 _ => {}
             }
         }
