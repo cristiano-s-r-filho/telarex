@@ -20,7 +20,7 @@ git = ["telarex-core/git"]
 unstable = []
 
 [dependencies]
-telarex-core = { path = "../telarex-core" }
+telarex-core = { version = "0.5.0-beta", path = "../telarex-core" }
 
 ratatui = { workspace = true }
 crossterm = { workspace = true }
