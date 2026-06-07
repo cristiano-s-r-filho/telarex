@@ -35,4 +35,6 @@ pub enum UIAction {
     Copy,
     Paste,
     Quit,
+    ToggleLodgeIdVisibility,
+    ToggleLodgeIdFormat,
 }

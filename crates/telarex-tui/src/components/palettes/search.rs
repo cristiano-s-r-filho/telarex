@@ -2,7 +2,7 @@
 use crossterm::event::{KeyCode, KeyEventKind, KeyModifiers};
 use ratatui::{
     layout::{Rect, Layout, Constraint},
-    style::{Modifier, Style, Color},
+    style::{Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Clear, List, ListItem, ListState, Paragraph},
     Frame,
@@ -189,7 +189,7 @@ impl SearchPalette {
         frame.render_widget(block, palette_area);
 
         let input_line = Line::from(vec![
-            Span::styled(" [SEARCH] ", Style::default().fg(self.theme.border_active)),
+            Span::styled(" > ", Style::default().fg(self.theme.border_active)),
             Span::styled(&self.input, Style::default().fg(self.theme.fg).add_modifier(Modifier::BOLD)),
             Span::styled("_", Style::default().fg(self.theme.border_active)),
         ]);
@@ -203,11 +203,11 @@ impl SearchPalette {
         frame.render_widget(Paragraph::new(input_line).bg(self.theme.surface_alt), chunks[0]);
 
         let list = if self.results.is_empty() && !self.input.is_empty() {
-            List::new(vec![ListItem::new(" [No results found. Press Enter to search]")
-                .style(Style::default().fg(self.theme.gutter_fg))])
+            List::new(vec![ListItem::new("  No results found. Press Enter to search ")
+                .style(Style::default().fg(self.theme.fg_dim))])
         } else if self.results.is_empty() {
-            List::new(vec![ListItem::new(" [Type and press Enter to search project-wide]")
-                .style(Style::default().fg(self.theme.gutter_fg))])
+            List::new(vec![ListItem::new("  Type and press Enter to search project-wide ")
+                .style(Style::default().fg(self.theme.fg_dim))])
         } else {
             let items: Vec<ListItem> = self
                 .results
@@ -217,8 +217,8 @@ impl SearchPalette {
                     let pattern = self.input.to_lowercase();
                     
                     let mut spans = vec![
-                        Span::styled(" [F] ", Style::default().fg(Color::Cyan)),
-                        Span::styled(format!("{}:{}  ", file_name, res.line_number), Style::default().fg(Color::Gray)),
+                        Span::styled(" [F] ", Style::default().fg(self.theme.accent)),
+                        Span::styled(format!("{}:{}  ", file_name, res.line_number), Style::default().fg(self.theme.fg_dim)),
                     ];
 
                     let content = res.content.trim();
@@ -227,7 +227,7 @@ impl SearchPalette {
                             spans.push(Span::raw(&content[..pos]));
                             spans.push(Span::styled(
                                 &content[pos..pos + pattern.len()],
-                                Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+                                Style::default().fg(self.theme.warning).add_modifier(Modifier::BOLD)
                             ));
                             spans.push(Span::raw(&content[pos + pattern.len()..]));
                         } else {

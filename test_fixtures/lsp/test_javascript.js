@@ -2,7 +2,8 @@
  * Example JavaScript module for syntax highlighting test.
  * @module geometry
  */
-
+// One can use this with Split Windows as well. 
+// SEE!! IT works! KINDA... [#07.06.2026] 
 export class Point {
   /**
    * @param {number} x

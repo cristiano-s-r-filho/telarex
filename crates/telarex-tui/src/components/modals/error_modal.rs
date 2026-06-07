@@ -2,7 +2,7 @@
 use crossterm::event::{KeyCode, KeyEventKind};
 use ratatui::{
     layout::{Rect, Layout, Constraint},
-    style::{Color, Style, Modifier},
+    style::{Style, Modifier},
     text::{Line, Span},
     widgets::{Block, Borders, Clear, Paragraph},
     Frame,
@@ -68,7 +68,7 @@ impl Component for ErrorModal {
         if !self.active { return; }
         let Some(error) = &self.current_error else { return; };
 
-        let modal_area = crate::utils::centered_rect_fixed(60, 8, area);
+        let modal_area = crate::utils::centered_rect_fixed(64, 10, area);
         frame.render_widget(Clear, modal_area);
 
         let border_color = match error.level {
@@ -82,25 +82,25 @@ impl Component for ErrorModal {
             .borders(Borders::ALL)
             .border_style(Style::default().fg(border_color))
             .bg(self.theme.surface_alt)
-            .title(format!(" Error: {} ", sanitize(&error.code)));
+            .title(format!(" {} ", sanitize(&error.code)));
 
         let inner = block.inner(modal_area);
         frame.render_widget(block, modal_area);
 
         let layout = Layout::vertical([
             Constraint::Length(1),
+            Constraint::Length(2),
             Constraint::Length(1),
-            Constraint::Min(0),
         ]).split(inner);
 
         frame.render_widget(Paragraph::new(sanitize(&error.message)).style(Style::default().fg(self.theme.fg).add_modifier(Modifier::BOLD)), layout[0]);
 
         let solution = Line::from(vec![
-            Span::styled(" [Solution] ", Style::default().fg(border_color)),
+            Span::styled("  ", Style::default().fg(border_color)),
             Span::styled(sanitize(&error.solution), Style::default().fg(self.theme.fg)),
         ]);
         frame.render_widget(Paragraph::new(solution), layout[1]);
 
-        frame.render_widget(Paragraph::new(" Press Enter/Esc to dismiss ").style(Style::default().fg(Color::DarkGray)), layout[2]);
+        frame.render_widget(Paragraph::new("  Press Enter/Esc to dismiss ").style(Style::default().fg(self.theme.fg_dim)), layout[2]);
     }
 }

@@ -261,7 +261,7 @@ impl Component for WelcomeView {
                 .map(|p| ListItem::new(format!(" {} ", sanitize(p))))
                 .collect();
             let list = List::new(items)
-                .block(Block::default().borders(Borders::ALL).title(" Recent Projects ").bg(self.theme.surface_alt).border_style(Style::default().fg(self.theme.warning)))
+                .block(Block::default().borders(Borders::ALL).title(" Recent Projects ").bg(self.theme.surface_alt).border_style(Style::default().fg(self.theme.border_active)))
                 .highlight_style(self.theme.list_selected);
             frame.render_stateful_widget(list, modal_area, &mut self.recent_projects_state.borrow_mut());
         }

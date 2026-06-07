@@ -7,6 +7,5 @@ async fn some_function(){
     // There is no LSP suppport yet. 
 
 
-    //Nor content on this function. 
 
 }

@@ -31,6 +31,10 @@ pub struct StatusBar {
     pub lodge_status: String,
     /// Number of connected peers in the lodge.
     pub peer_count: usize,
+    /// Whether the lodge section is visible in the status bar.
+    pub lodge_visible: bool,
+    /// Whether to show the full lodge UUID (vs shortened).
+    pub lodge_full_id: bool,
     /// Display name of the current user.
     pub username: String,
     /// Current git branch name, if any.
@@ -57,6 +61,8 @@ impl Default for StatusBar {
             lodge_id: None,
             lodge_status: "Offline".to_string(),
             peer_count: 0,
+            lodge_visible: true,
+            lodge_full_id: false,
             username: "User".to_string(),
             git_branch: None,
             git_dirty: 0,
@@ -96,7 +102,9 @@ impl Component for StatusBar {
         }).unwrap_or_default();
 
         let lodge_color = if self.lodge_status == "Online" { success } else { self.theme.error };
-        let id_str = self.lodge_id.map(|id| shorten_uuid(id)).unwrap_or_else(|| "--".to_string());
+        let id_str = self.lodge_id.map(|id| {
+            if self.lodge_full_id { id.to_string() } else { shorten_uuid(id) }
+        }).unwrap_or_else(|| "--".to_string());
 
         let selection_info = if self.selection_count > 0 {
             format!(" sel({}) ", self.selection_count)
@@ -136,11 +144,15 @@ impl Component for StatusBar {
             vec![]
         };
 
-        let right_spans: Vec<Span> = vec![
-            Span::styled(" ● ", Style::default().fg(lodge_color)),
-            Span::styled(id_str, Style::default().fg(fg)),
-            Span::styled(format!(" {}", self.peer_count), Style::default().fg(self.theme.info)),
-        ];
+        let right_spans: Vec<Span> = if self.lodge_visible {
+            vec![
+                Span::styled(" ● ", Style::default().fg(lodge_color)),
+                Span::styled(id_str, Style::default().fg(fg)),
+                Span::styled(format!(" {}", self.peer_count), Style::default().fg(self.theme.info)),
+            ]
+        } else {
+            vec![]
+        };
 
         let far_right_spans: Vec<Span> = vec![
             if !lang_str.is_empty() {
@@ -174,13 +186,13 @@ impl Component for StatusBar {
             all_spans.push(s);
         }
 
-        all_spans.push(Span::styled(" ", Style::default().bg(bg).fg(fg)));
-
-        for s in right_spans {
-            all_spans.push(s);
+        if self.lodge_visible {
+            all_spans.push(Span::styled(" ", Style::default().bg(bg).fg(fg)));
+            for s in right_spans {
+                all_spans.push(s);
+            }
+            all_spans.push(Span::styled(" ", Style::default().bg(bg)));
         }
-
-        all_spans.push(Span::styled(" ", Style::default().bg(bg)));
 
         for s in far_right_spans {
             all_spans.push(s);

@@ -58,16 +58,22 @@ impl KeyMapper {
             }
         }
 
-        // 3. Global Layer (Hardcoded overrides)
+        // 3. Alt Layer (Tab navigation — avoids Ctrl+Tab terminal conflicts)
+        if key.modifiers.contains(KeyModifiers::ALT) && !key.modifiers.contains(KeyModifiers::CONTROL) {
+            match key.code {
+                KeyCode::Left => return Some(UIAction::PrevTab),
+                KeyCode::Right => return Some(UIAction::NextTab),
+                _ => {}
+            }
+        }
+
+        // 4. Global Layer (Hardcoded overrides)
         if key.modifiers.contains(KeyModifiers::CONTROL) && !key.modifiers.contains(KeyModifiers::ALT) {
             match key.code {
                 KeyCode::Char('p') => return Some(UIAction::EnterCommandMode),
                 KeyCode::Char('f') => return Some(UIAction::EnterSearchMode),
                 KeyCode::Char('m') => return Some(UIAction::ToggleMacroPalette),
                 KeyCode::Char('t') => return Some(UIAction::NewTab),
-                KeyCode::BackTab => return Some(UIAction::PrevTab),
-                KeyCode::Tab if key.modifiers.contains(KeyModifiers::SHIFT) => return Some(UIAction::PrevTab),
-                KeyCode::Tab => return Some(UIAction::NextTab),
                 KeyCode::Char('w') => {
                     log::info!("[KM] hardcoded match: Ctrl+W -> EnterWindowMode");
                     return Some(UIAction::EnterWindowMode);
@@ -78,6 +84,8 @@ impl KeyMapper {
                 KeyCode::Char('s') => return Some(UIAction::Core(telarex_core::command::Command::Save)),
                 KeyCode::Char('c') => return Some(UIAction::Copy),
                 KeyCode::Char('v') => return Some(UIAction::Paste),
+                KeyCode::Char('l') => return Some(UIAction::ToggleLodgeIdVisibility),
+                KeyCode::Char('y') => return Some(UIAction::ToggleLodgeIdFormat),
                 _ => {}
             }
         }
@@ -87,7 +95,7 @@ impl KeyMapper {
             return Some(UIAction::Core(telarex_core::command::Command::GitStatus));
         }
 
-        // 4. Fallback: handle raw control characters (0x01-0x1A) as Ctrl+letter
+        // 5. Fallback: handle raw control characters (0x01-0x1A) as Ctrl+letter
         if !key.modifiers.contains(KeyModifiers::CONTROL) && !key.modifiers.contains(KeyModifiers::ALT) {
             if let KeyCode::Char(c) = key.code {
                 let code = c as u32;
@@ -100,7 +108,7 @@ impl KeyMapper {
             }
         }
 
-        // 5. Fallback for character keys (Never swallow them)
+        // 6. Fallback for character keys (Never swallow them)
         if let KeyCode::Char(_) = key.code {
              // AltGr (reported as Ctrl+Alt) should NOT trigger shortcuts
              let is_strictly_control = key.modifiers.contains(KeyModifiers::CONTROL) && !key.modifiers.contains(KeyModifiers::ALT);
@@ -187,6 +195,8 @@ fn parse_action(s: &str) -> Option<UIAction> {
         "GitPush" => Some(UIAction::Core(Command::GitPush)),
         "GitPull" => Some(UIAction::Core(Command::GitPull)),
         "GitLog" => Some(UIAction::Core(Command::GitLog)),
+        "ToggleLodgeIdVisibility" => Some(UIAction::ToggleLodgeIdVisibility),
+        "ToggleLodgeIdFormat" => Some(UIAction::ToggleLodgeIdFormat),
         _ => None,
     }
 }
@@ -255,7 +265,7 @@ mod tests {
 
     #[test]
     fn test_parse_action_all() {
-        let map: [(&str, UIAction); 21] = [
+        let map: [(&str, UIAction); 23] = [
             ("Quit", UIAction::Quit),
             ("Save", UIAction::Core(telarex_core::command::Command::Save)),
             ("OpenFile", UIAction::Core(telarex_core::command::Command::OpenFile)),
@@ -277,6 +287,8 @@ mod tests {
             ("GitPush", UIAction::Core(telarex_core::command::Command::GitPush)),
             ("GitPull", UIAction::Core(telarex_core::command::Command::GitPull)),
             ("GitLog", UIAction::Core(telarex_core::command::Command::GitLog)),
+            ("ToggleLodgeIdVisibility", UIAction::ToggleLodgeIdVisibility),
+            ("ToggleLodgeIdFormat", UIAction::ToggleLodgeIdFormat),
         ];
         for (s, expected) in &map {
             assert_eq!(parse_action(s), Some(expected.clone()), "failed for {}", s);

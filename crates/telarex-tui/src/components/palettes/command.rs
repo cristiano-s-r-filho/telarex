@@ -3,7 +3,7 @@ use telarex_core::command::Command;
 use crossterm::event::{KeyCode, KeyEventKind, KeyModifiers};
 use ratatui::{
     layout::{Rect, Layout, Constraint},
-    style::{Modifier, Style, Color},
+    style::{Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Clear, List, ListItem, ListState, Paragraph},
     Frame,
@@ -172,7 +172,7 @@ impl CommandPalette {
         frame.render_widget(block, palette_area);
 
         let input_line = Line::from(vec![
-            Span::styled("   ", Style::default().fg(self.theme.border_active)),
+            Span::styled(" > ", Style::default().fg(self.theme.border_active)),
             Span::styled(&self.input, Style::default().fg(self.theme.fg).add_modifier(Modifier::BOLD)),
             Span::styled("█", Style::default().fg(self.theme.border_active)),
         ]);
@@ -192,7 +192,7 @@ impl CommandPalette {
                 let name = cmd.name();
                 let pattern = self.input.to_lowercase();
                 
-                let mut spans = vec![Span::raw(" 󰘳  ")];
+                let mut spans = vec![Span::raw("  ")];
                 
                 if !pattern.is_empty() {
                     if let Some(pos) = name.to_lowercase().find(&pattern) {
@@ -215,7 +215,7 @@ impl CommandPalette {
                 }
                 
                 spans.push(Span::raw("  "));
-                spans.push(Span::styled(cmd.description(), Style::default().fg(Color::Gray)));
+                spans.push(Span::styled(cmd.description(), Style::default().fg(self.theme.fg_dim)));
 
                 ListItem::new(Line::from(spans)).style(Style::default().fg(self.theme.fg))
             })

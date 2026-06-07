@@ -484,6 +484,8 @@ impl EditorView {
                 EventResult::Handled
             }
             UIAction::CloseTab => { self.tabs.remove_active_tab(); self.update_focus_state(); EventResult::Handled }
+            UIAction::ToggleLodgeIdVisibility => { self.status_bar.lodge_visible = !self.status_bar.lodge_visible; EventResult::Handled }
+            UIAction::ToggleLodgeIdFormat => { self.status_bar.lodge_full_id = !self.status_bar.lodge_full_id; EventResult::Handled }
             UIAction::ExecuteSearch => { /* not yet implemented */ EventResult::Handled }
             UIAction::SelectSearchResult => { /* not yet implemented */ EventResult::Handled }
             UIAction::TriggerAutocomplete => { /* not yet implemented */ EventResult::Handled }
