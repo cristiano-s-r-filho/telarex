@@ -228,7 +228,7 @@ Available action names: `Quit`, `Save`, `OpenFile`, `EnterCommandMode`, `EnterSe
 ## Building from Source
 
 ```bash
-git clone https://github.com/telarex/telarex
+git clone https://github.com/cristiano-s-r-filho/telarex
 cd telarex
 cargo build --release
 ./target/release/trex

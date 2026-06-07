@@ -1,7 +1,7 @@
 class Trex < Formula
   desc "Terminal-based collaborative text editor with P2P sync and post-quantum security"
-  homepage "https://github.com/telarex/telarex"
-  url "https://github.com/telarex/telarex/archive/refs/tags/v0.5.0-beta.tar.gz"
+  homepage "https://github.com/cristiano-s-r-filho/telarex"
+  url "https://github.com/cristiano-s-r-filho/telarex/archive/refs/tags/v0.5.0-beta.tar.gz"
   sha256 "0000000000000000000000000000000000000000000000000000000000000000"
   license "MIT OR Apache-2.0"
 

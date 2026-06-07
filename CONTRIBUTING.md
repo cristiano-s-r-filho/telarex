@@ -4,7 +4,7 @@ Thank you for your interest in TelaRex! This document covers how to report bugs,
 
 ## Reporting Bugs
 
-Open a [GitHub Issue](https://github.com/telarex/telarex/issues/new?template=bug_report.md) with:
+Open a [GitHub Issue](https://github.com/cristiano-s-r-filho/telarex/issues/new?template=bug_report.md) with:
 
 - **Steps to reproduce** — minimal, exact sequence
 - **Expected vs actual behaviour**
@@ -13,7 +13,7 @@ Open a [GitHub Issue](https://github.com/telarex/telarex/issues/new?template=bug
 
 ## Feature Requests
 
-Open a [Feature Request](https://github.com/telarex/telarex/issues/new?template=feature_request.md) describing the use case and why existing workflows don't cover it.
+Open a [Feature Request](https://github.com/cristiano-s-r-filho/telarex/issues/new?template=feature_request.md) describing the use case and why existing workflows don't cover it.
 
 ## Pull Requests
 
@@ -32,5 +32,5 @@ Open a [Feature Request](https://github.com/telarex/telarex/issues/new?template=
 
 ## Getting Help
 
-- Open a [Discussion](https://github.com/telarex/telarex/discussions) for questions.
+- Open a [Discussion](https://github.com/cristiano-s-r-filho/telarex/discussions) for questions.
 - Read the [Beta Guide](docs/BETA_GUIDE.md) for setup and workflow help.
