@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 """Example Python module for syntax highlighting""" 
-p
 import sys
 from dataclasses import dataclass
 from typing import List, Optional
