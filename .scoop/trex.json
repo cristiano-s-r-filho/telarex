@@ -6,7 +6,7 @@
   "architecture": {
     "64bit": {
       "url": "https://github.com/cristiano-s-r-filho/telarex/releases/download/v0.5.0-beta/trex-x86_64-pc-windows-msvc.zip",
-      "hash": "0000000000000000000000000000000000000000000000000000000000000000"
+      "hash": "2b6ff1a698ec6101846fd7c659ccd008166482a91b7e1bee3532276b353e02ec"
     }
   },
   "bin": "trex.exe",
