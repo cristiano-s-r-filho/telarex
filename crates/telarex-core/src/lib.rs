@@ -15,6 +15,7 @@
 pub mod buffer;
 pub mod clipboard;
 pub mod command;
+#[cfg(feature = "git")]
 pub mod git_sidecar;
 pub mod config;
 pub mod crdt;
