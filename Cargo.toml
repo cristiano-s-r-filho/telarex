@@ -3,7 +3,7 @@ members = ["crates/telarex-core", "crates/telarex-tui"]
 resolver = "2"
 
 [workspace.package]
-version = "0.5.0-beta"
+version = "0.5.1"
 edition = "2021"
 authors = ["TelaRex Contributors"]
 description = "Terminal-based collaborative text editor with P2P sync and post-quantum security"
