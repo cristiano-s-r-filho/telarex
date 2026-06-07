@@ -1,12 +1,12 @@
 {
-  "version": "0.5.0-beta",
+  "version": "0.5.1",
   "description": "Terminal-based collaborative text editor with P2P sync and post-quantum security",
   "homepage": "https://github.com/cristiano-s-r-filho/telarex",
   "license": "MIT OR Apache-2.0",
   "architecture": {
     "64bit": {
-      "url": "https://github.com/cristiano-s-r-filho/telarex/releases/download/v0.5.0-beta/trex-x86_64-pc-windows-msvc.zip",
-      "hash": "2b6ff1a698ec6101846fd7c659ccd008166482a91b7e1bee3532276b353e02ec"
+      "url": "https://github.com/cristiano-s-r-filho/telarex/releases/download/v0.5.1/trex-v0.5.1-x86_64-pc-windows-msvc.zip",
+      "hash": "0555ed8ba880c4338f7944741cc285e652d0a6238edb5e52a2d22b5e5d2a39e8"
     }
   },
   "bin": "trex.exe",
@@ -16,7 +16,7 @@
   "autoupdate": {
     "architecture": {
       "64bit": {
-        "url": "https://github.com/cristiano-s-r-filho/telarex/releases/download/v$version/trex-x86_64-pc-windows-msvc.zip"
+        "url": "https://github.com/cristiano-s-r-filho/telarex/releases/download/v$version/trex-v$version-x86_64-pc-windows-msvc.zip"
       }
     }
   }

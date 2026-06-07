@@ -1,8 +1,9 @@
 class Trex < Formula
   desc "Terminal-based collaborative text editor with P2P sync and post-quantum security"
   homepage "https://github.com/cristiano-s-r-filho/telarex"
-  url "https://github.com/cristiano-s-r-filho/telarex/archive/refs/tags/v0.5.0-beta.tar.gz"
-  sha256 "9818769f171bee29b5fbc3a9608d1edf054192a068ec21edd60721c7bc675c31"
+  version "0.5.1"
+  url "https://github.com/cristiano-s-r-filho/telarex/archive/refs/tags/v0.5.1.tar.gz"
+  sha256 "938d3a0f9ae4124502b2669144244e16d8d74857cdd4c5e231c6de16cca98a96"
   license "MIT OR Apache-2.0"
 
   depends_on "rust" => :build
