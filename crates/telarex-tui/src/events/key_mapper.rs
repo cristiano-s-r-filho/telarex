@@ -58,11 +58,9 @@ impl KeyMapper {
             }
         }
 
-        // 3. Alt Layer (Tab navigation — avoids Ctrl+Tab terminal conflicts)
+        // 3. Alt Layer — various secondary bindings
         if key.modifiers.contains(KeyModifiers::ALT) && !key.modifiers.contains(KeyModifiers::CONTROL) {
             match key.code {
-                KeyCode::Left => return Some(UIAction::PrevTab),
-                KeyCode::Right => return Some(UIAction::NextTab),
                 _ => {}
             }
         }
@@ -74,6 +72,8 @@ impl KeyMapper {
                 KeyCode::Char('f') => return Some(UIAction::EnterSearchMode),
                 KeyCode::Char('m') => return Some(UIAction::ToggleMacroPalette),
                 KeyCode::Char('t') => return Some(UIAction::NewTab),
+                KeyCode::PageUp => return Some(UIAction::PrevTab),
+                KeyCode::PageDown => return Some(UIAction::NextTab),
                 KeyCode::Char('w') => {
                     log::info!("[KM] hardcoded match: Ctrl+W -> EnterWindowMode");
                     return Some(UIAction::EnterWindowMode);

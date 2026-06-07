@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 """Example Python module for syntax highlighting""" 
+# It supports multiple LSPs our of the box!! Python, JSON, Javascript, HTML5, CSS3, toml, YAML, and RUST! With more planned!. 
+
 import sys
 from dataclasses import dataclass
 from typing import List, Optional

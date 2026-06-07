@@ -119,7 +119,7 @@ impl WelcomeView {
         ]
     }
 
-    fn handle_menu_key(&mut self, key: &str) {
+    fn handle_menu_key(&mut self, key: &str, ctx: &mut AppContext) {
         match key.to_uppercase().as_str() {
             "N" | "O" => self.input_modal.show(),
             "R" => {
@@ -134,6 +134,7 @@ impl WelcomeView {
             }
             "J" => self.join_by_id_modal.show(),
             "C" => self.open_config = true,
+            "Q" => ctx.quit(),
             _ => {}
         }
     }
@@ -389,7 +390,7 @@ impl Component for WelcomeView {
                         }
                     } else {
                         let key = self.menu_items()[self.selected_menu_item].0;
-                        self.handle_menu_key(key);
+                        self.handle_menu_key(key, ctx);
                     }
                     EventResult::Handled
                 }
@@ -399,7 +400,7 @@ impl Component for WelcomeView {
                         let filtered = self.filtered_lodges();
                         self.discovered_lodges_state.borrow_mut().select(if filtered.is_empty() { None } else { Some(0) });
                     } else {
-                        self.handle_menu_key(&c.to_string());
+                        self.handle_menu_key(&c.to_string(), ctx);
                     }
                     EventResult::Handled
                 }

@@ -1,4 +1,4 @@
-//! Configuration modal — editor, appearance, network, and keymap settings.
+//! Configuration screen — editor, appearance, network, and keymap settings.
 use crossterm::event::{KeyCode, KeyEventKind, KeyModifiers};
 use ratatui::{
     layout::{Rect, Layout, Constraint},
@@ -7,6 +7,7 @@ use ratatui::{
     widgets::{Block, Borders, Paragraph, List, ListItem, Padding},
     Frame,
 };
+use ratatui::prelude::Stylize;
 use crate::tui_compat::{AppContext, Component, DrawContext, Event, EventResult};
 use telarex_core::config::{self, TelaRexConfig, ThemeEngine};
 
@@ -14,18 +15,13 @@ use crate::theme::Theme;
 use crate::utils::sanitize;
 
 use crate::components::modals::InputModal;
-use super::modal::Modal;
 
 /// Categories of configuration settings.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ConfigCategory {
-    /// Editor settings (tab size, vim mode, line numbers, etc.).
     Editor,
-    /// Appearance settings (theme selection).
     Appearance,
-    /// Network settings (username, bootstrap node).
     Network,
-    /// Keymap reference display.
     Keymaps,
 }
 
@@ -41,17 +37,24 @@ impl ConfigCategory {
             Self::Keymaps => "Keymaps",
         }
     }
+    fn icon(&self) -> &'static str {
+        match self {
+            Self::Editor => "◆",
+            Self::Appearance => "◇",
+            Self::Network => "●",
+            Self::Keymaps => "◈",
+        }
+    }
 }
 
-/// Configuration editor modal — browse and modify all settings.
+/// Full-screen configuration editor — browse and modify all settings.
 pub struct ConfigModal {
-    /// The underlying modal widget for backdrop and border.
-    pub modal: Modal,
+    pub active: bool,
+    pub should_exit: bool,
     config: TelaRexConfig,
     modified: bool,
     selected_category: usize,
     selected_field: usize,
-    /// The current theme.
     pub theme: Theme,
     input_modal: InputModal,
     session_id: Option<String>,
@@ -67,7 +70,8 @@ impl ConfigModal {
         let _ = theme_engine.load_themes("themes");
         let available_themes = theme_engine.list_themes();
         Self {
-            modal: Modal::new(" Configuration (Ctrl+S to save) "),
+            active: false,
+            should_exit: false,
             config,
             modified: false,
             selected_category: 0,
@@ -86,7 +90,7 @@ impl ConfigModal {
     }
 
     pub fn show(&mut self) {
-        self.modal.show();
+        self.active = true;
         self.config = config::load(self.session_id.as_deref()).unwrap_or_default();
         self.modified = false;
         self.selected_category = 0;
@@ -96,7 +100,8 @@ impl ConfigModal {
     }
 
     pub fn hide(&mut self) {
-        self.modal.hide();
+        self.active = false;
+        self.should_exit = true;
     }
 
     pub fn get_config(&self) -> &TelaRexConfig {
@@ -169,7 +174,7 @@ impl ConfigModal {
 
 impl Component for ConfigModal {
     fn handle_event(&mut self, event: &Event, ctx: &mut AppContext) -> EventResult {
-        if !self.modal.active { return EventResult::Unhandled; }
+        if !self.active { return EventResult::Unhandled; }
 
         if self.input_modal.modal.active {
             let res = self.input_modal.handle_event(event, ctx);
@@ -191,7 +196,7 @@ impl Component for ConfigModal {
 
             match key_event.code {
                 KeyCode::Esc => { self.hide(); return EventResult::Handled; }
-                KeyCode::Char('s') if key_event.modifiers == KeyModifiers::CONTROL => { self.save(); return EventResult::Handled; }
+                KeyCode::Char('s') if key_event.modifiers == KeyModifiers::CONTROL => { self.save(); if self.active { self.hide(); } return EventResult::Handled; }
                 KeyCode::Tab | KeyCode::Right if !self.focus_on_fields => { if self.fields_count() > 0 { self.focus_on_fields = true; } return EventResult::Handled; }
                 KeyCode::Left if self.focus_on_fields => { self.focus_on_fields = false; return EventResult::Handled; }
                 KeyCode::Down | KeyCode::Char('j') => { self.next_item(); return EventResult::Handled; }
@@ -234,104 +239,146 @@ impl Component for ConfigModal {
     }
 
     fn draw(&self, frame: &mut Frame, area: Rect, ctx: &DrawContext) {
-        if !self.modal.active { return; }
+        if !self.active { return; }
 
-        let inner_area = match self.modal.render(frame, area, &self.theme, 80, 30) {
-            Some(r) => r,
-            None => return,
-        };
+        // Full-screen layout
+        let chunks = Layout::vertical([
+            Constraint::Length(3), // Header bar
+            Constraint::Min(0),    // Body
+            Constraint::Length(1), // Footer bar
+        ]).split(area);
 
-        let chunks = Layout::horizontal([
-            Constraint::Length(18), 
+        // ── Header ──
+        let save_indicator = if self.modified { "  ● unsaved" } else { "" };
+        let header_line = Line::from(vec![
+            Span::styled("  ◆  Settings", self.theme.header.add_modifier(Modifier::BOLD)),
+            Span::raw("  "),
+            Span::styled(format!("[{}]{}", self.current_category().name(), save_indicator), Style::default().fg(self.theme.fg_dim)),
+        ]);
+        frame.render_widget(
+            Paragraph::new(header_line)
+                .block(Block::default().bg(self.theme.surface).borders(Borders::BOTTOM).border_style(Style::default().fg(self.theme.border_inactive))),
+            chunks[0],
+        );
+
+        // ── Body: sidebar | content ──
+        let body_chunks = Layout::horizontal([
+            Constraint::Length(20),
             Constraint::Min(0),
-        ]).split(inner_area);
+        ]).split(chunks[1]);
 
         // Sidebar
         let mut categories = Vec::new();
         for (i, cat) in ConfigCategory::all().iter().enumerate() {
-            let style = if i == self.selected_category {
+            let is_selected = i == self.selected_category;
+            let style = if is_selected {
                 if !self.focus_on_fields { self.theme.list_selected }
                 else { Style::default().fg(self.theme.border_active).add_modifier(Modifier::BOLD) }
             } else { Style::default().fg(self.theme.fg) };
-            categories.push(ListItem::new(sanitize(cat.name())).style(style));
+            categories.push(ListItem::new(Line::from(vec![
+                Span::styled(format!(" {}  ", cat.icon()), Style::default().fg(self.theme.accent)),
+                Span::styled(sanitize(cat.name()), style),
+            ])).style(style));
         }
-        frame.render_widget(List::new(categories).block(Block::default().borders(Borders::RIGHT).border_style(Style::default().fg(self.theme.border_inactive))), chunks[0]);
+        let sidebar = List::new(categories)
+            .block(Block::default().borders(Borders::RIGHT).border_style(Style::default().fg(self.theme.border_inactive)).bg(self.theme.surface));
+        frame.render_widget(sidebar, body_chunks[0]);
 
-        // Main Area
-        let fields_area = chunks[1];
-        let mut fields = Vec::new();
+        // Main content area
+        let content_area = body_chunks[1];
+        let inner = Block::default().padding(Padding::uniform(1));
+        let inner_area = inner.inner(content_area);
+        frame.render_widget(inner, content_area);
+
+        let mut fields: Vec<(&str, String, &str)> = Vec::new();
         match self.current_category() {
             ConfigCategory::Editor => {
-                fields.push(("Tab Size", format!("{}", self.config.editor.tab_size)));
-                fields.push(("Vim Mode", if self.config.editor.vim_mode { "✓".to_string() } else { "✗".to_string() }));
-                fields.push(("Line Numbers", if self.config.editor.line_numbers { "✓".to_string() } else { "✗".to_string() }));
-                fields.push(("Auto-save", if self.config.editor.auto_save { "✓".to_string() } else { "✗".to_string() }));
-                fields.push(("Wrap Text", if self.config.editor.wrap_text { "✓".to_string() } else { "✗".to_string() }));
+                fields.push(("Tab Size", format!("{}", self.config.editor.tab_size), "use ←/→ to adjust"));
+                fields.push(("Vim Mode", if self.config.editor.vim_mode { "✓ on".to_string() } else { "✗ off".to_string() }, "Enter to toggle"));
+                fields.push(("Line Numbers", if self.config.editor.line_numbers { "✓ on".to_string() } else { "✗ off".to_string() }, "Enter to toggle"));
+                fields.push(("Auto-save", if self.config.editor.auto_save { "✓ on".to_string() } else { "✗ off".to_string() }, "Enter to toggle"));
+                fields.push(("Wrap Text", if self.config.editor.wrap_text { "✓ on".to_string() } else { "✗ off".to_string() }, "Enter to toggle"));
             }
             ConfigCategory::Appearance => {
-                fields.push(("Theme", self.config.editor.theme.clone()));
+                fields.push(("Theme", self.config.editor.theme.clone(), "use ←/→ to cycle"));
             }
             ConfigCategory::Network => {
-                fields.push(("Username", self.config.profile.username.clone()));
-                fields.push(("Bootstrap", self.config.network.bootstrap_node.clone()));
+                fields.push(("Username", self.config.profile.username.clone(), "Enter to edit"));
+                fields.push(("Bootstrap", self.config.network.bootstrap_node.clone(), "Enter to edit"));
             }
             ConfigCategory::Keymaps => {
-                fields.push(("=== GLOBAL ===", String::new()));
-                fields.push(("Ctrl+P", "Command Palette".to_string()));
-                fields.push(("Ctrl+F", "Search".to_string()));
-                fields.push(("Ctrl+M", "Macro Palette".to_string()));
-                fields.push(("Ctrl+T", "New Tab".to_string()));
-                fields.push(("Ctrl+Tab", "Next Tab".to_string()));
-                fields.push(("Ctrl+Shift+Tab", "Prev Tab".to_string()));
-                fields.push(("Ctrl+W", "Window Mode".to_string()));
-                fields.push(("Ctrl+Shift+W", "Close Tab".to_string()));
-                fields.push(("Ctrl+E", "Switch Focus".to_string()));
-                fields.push(("Ctrl+B", "Toggle Explorer".to_string()));
-                fields.push(("Ctrl+S", "Save".to_string()));
-                fields.push(("Ctrl+C", "Copy".to_string()));
-                fields.push(("Ctrl+V", "Paste".to_string()));
-                fields.push(("Ctrl+G", "Git Status".to_string()));
-                fields.push(("Ctrl+Q", "Quit".to_string()));
-                fields.push(("", String::new()));
-                fields.push(("=== WINDOW MODE ===", String::new()));
-                fields.push(("V", "Split Vertical".to_string()));
-                fields.push(("S", "Split Horizontal".to_string()));
-                fields.push(("H / Left", "Focus Left".to_string()));
-                fields.push(("L / Right", "Focus Right".to_string()));
-                fields.push(("K / Up", "Focus Up".to_string()));
-                fields.push(("J / Down", "Focus Down".to_string()));
-                fields.push(("C / Q", "Close Pane".to_string()));
-                fields.push(("other", "Exit Mode".to_string()));
-                if !self.config.keymaps.global.is_empty() {
-                    fields.push(("", String::new()));
-                    fields.push(("=== CONFIG FILE ===", String::new()));
-                    let mut pairs: Vec<_> = self.config.keymaps.global.iter().collect();
-                    pairs.sort_by_key(|(k, _)| (*k).clone());
-                    for (key, action) in &pairs {
-                        fields.push((key.as_str(), action.to_string()));
-                    }
-                }
+                let keymap_lines = vec![
+                    ("Ctrl+P", "Command Palette"),
+                    ("Ctrl+F", "Search"),
+                    ("Ctrl+M", "Macro Palette"),
+                    ("Ctrl+T", "New Tab"),
+                    ("Ctrl+PageDown", "Next Tab"),
+                    ("Ctrl+PageUp", "Prev Tab"),
+                    ("Ctrl+W", "Window Mode"),
+                    ("Ctrl+Shift+W", "Close Tab"),
+                    ("Ctrl+E", "Switch Focus"),
+                    ("Ctrl+B", "Toggle Explorer"),
+                    ("Ctrl+L", "Toggle Lodge ID"),
+                    ("Ctrl+Y", "Toggle Lodge Format"),
+                    ("Ctrl+S", "Save"),
+                    ("Ctrl+C", "Copy"),
+                    ("Ctrl+V", "Paste"),
+                    ("Ctrl+G", "Git Status"),
+                    ("Ctrl+Q", "Quit"),
+                ];
+                return frame.render_widget(
+                    Paragraph::new(keymap_lines.iter().map(|(k, v)| {
+                        Line::from(vec![
+                            Span::styled(format!("  {:18}", k), self.theme.status_label),
+                            Span::styled(format!(" {}", v), Style::default().fg(self.theme.fg)),
+                        ])
+                    }).collect::<Vec<_>>())
+                    .block(Block::default().title(" Keybinds ").borders(Borders::ALL).border_style(Style::default().fg(self.theme.border_inactive))),
+                    inner_area,
+                );
             }
         }
 
         let mut field_widgets = Vec::new();
-        for (i, (label, value)) in fields.iter().enumerate() {
+        for (i, (label, value, hint)) in fields.iter().enumerate() {
             let is_selected = self.focus_on_fields && i == self.selected_field;
-            let style = if is_selected { self.theme.list_selected } else { Style::default().fg(self.theme.fg) };
-            if label.starts_with("===") {
-                field_widgets.push(Line::from(vec![
-                    Span::styled(format!(" {}", sanitize(label)), self.theme.status_label.add_modifier(Modifier::BOLD)),
-                ]));
-            } else if label.is_empty() {
-                field_widgets.push(Line::from(vec![Span::raw("")]));
-            } else {
-                field_widgets.push(Line::from(vec![
-                    Span::styled(format!(" {:<16} ", sanitize(label)), self.theme.status_label),
-                    Span::styled(format!(" {}", sanitize(value)), style),
-                ]));
-            }
+            let row_bg = if is_selected { self.theme.selection_bg } else { self.theme.bg };
+            let row_style = if is_selected { self.theme.list_selected } else { Style::default().fg(self.theme.fg) };
+
+            let value_style = if label == &"Vim Mode" || label == &"Line Numbers"
+                || label == &"Auto-save" || label == &"Wrap Text"
+            {
+                if value.starts_with("✓") { Style::default().fg(self.theme.success).add_modifier(Modifier::BOLD) }
+                else { Style::default().fg(self.theme.fg_dim) }
+            } else { Style::default().fg(self.theme.fg) };
+
+            field_widgets.push(
+                Paragraph::new(Line::from(vec![
+                    Span::styled(format!("  {:<16}", sanitize(label)), self.theme.status_label),
+                    Span::styled(format!(" {}", sanitize(value)), value_style),
+                    Span::styled(format!("  {}", hint), Style::default().fg(self.theme.fg_dim)),
+                ]))
+                .style(row_style)
+                .block(Block::default().bg(row_bg))
+            );
+            // Spacing
+            field_widgets.push(Paragraph::new(Line::from(vec![Span::raw("")])));
         }
-        frame.render_widget(Paragraph::new(field_widgets).block(Block::default().padding(Padding::uniform(1))), fields_area);
+        for w in field_widgets {
+            frame.render_widget(w, inner_area);
+        }
+
+        // ── Footer ──
+        let footer = Line::from(vec![
+            Span::styled("  [↑/↓] navigate  ", self.theme.footer_hint),
+            Span::styled("[Tab/Enter] focus field  ", self.theme.footer_hint),
+            Span::styled("[Esc] back  ", self.theme.footer_hint),
+            Span::styled("[Ctrl+S] save & exit", self.theme.footer_hint),
+        ]);
+        frame.render_widget(
+            Paragraph::new(footer).block(Block::default().bg(self.theme.surface).borders(Borders::TOP).border_style(Style::default().fg(self.theme.border_inactive))),
+            chunks[2],
+        );
 
         if self.input_modal.modal.active { self.input_modal.draw(frame, area, ctx); }
     }

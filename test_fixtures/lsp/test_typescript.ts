@@ -1,5 +1,5 @@
 /** Example TypeScript module for syntax highlighting test. */
-
+// This is a Tab. 
 interface Point {
   readonly x: number;
   readonly y: number;
