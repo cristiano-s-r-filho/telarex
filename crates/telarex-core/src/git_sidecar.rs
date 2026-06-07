@@ -41,7 +41,7 @@ impl GitSidecar {
         for entry in statuses.iter() {
             let s = entry.status();
             if s.contains(git2::Status::CURRENT) { continue; }
-            if s.intersects(git2::Status::INDEX_MODIFIED | git2::Status::INDEX_ADDED | git2::Status::INDEX_NEW) {
+            if s.intersects(git2::Status::INDEX_MODIFIED | git2::Status::INDEX_NEW) {
                 staged += 1;
             }
             if s.intersects(git2::Status::WT_MODIFIED | git2::Status::WT_DELETED) {
@@ -124,7 +124,7 @@ impl GitSidecar {
         let mut remote = self.repo.find_remote(remote)?;
         let refspec = format!("refs/heads/{}:refs/heads/{}", branch, branch);
         let mut callbacks = git2::RemoteCallbacks::new();
-        callbacks.push_update_reference(|refname, status| {
+        callbacks.push_update_reference(|_refname, status| {
             if let Some(msg) = status {
                 Err(git2::Error::from_str(msg))
             } else {

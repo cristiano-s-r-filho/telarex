@@ -24,7 +24,7 @@ impl KeyMapper {
 
         // 1. Window sub-mode (Ctrl+W)
         if mode == "window" {
-            return match (key.code, key.modifiers) {
+            let result = match (key.code, key.modifiers) {
                 (KeyCode::Char('v'), KeyModifiers::NONE) => Some(UIAction::SplitVertical),
                 (KeyCode::Char('s'), KeyModifiers::NONE) => Some(UIAction::SplitHorizontal),
                 (KeyCode::Char('h'), KeyModifiers::NONE) | (KeyCode::Left, KeyModifiers::NONE) => Some(UIAction::FocusLeft),
@@ -32,8 +32,11 @@ impl KeyMapper {
                 (KeyCode::Char('k'), KeyModifiers::NONE) | (KeyCode::Up, KeyModifiers::NONE) => Some(UIAction::FocusUp),
                 (KeyCode::Char('j'), KeyModifiers::NONE) | (KeyCode::Down, KeyModifiers::NONE) => Some(UIAction::FocusDown),
                 (KeyCode::Char('c'), KeyModifiers::NONE) | (KeyCode::Char('q'), KeyModifiers::NONE) => Some(UIAction::ClosePane),
+                (KeyCode::Char('w'), KeyModifiers::CONTROL) => None, // Dedup: discards duplicate Ctrl+W events
                 _ => Some(UIAction::ExitMode), // Any other key exits window mode
             };
+            log::info!("[KM] window mode: code={:?}, mods={:?}, result={:?}", key.code, key.modifiers, result);
+            return result;
         }
 
         // 2. Component Layer
@@ -60,8 +63,14 @@ impl KeyMapper {
                 KeyCode::Char('f') => return Some(UIAction::EnterSearchMode),
                 KeyCode::Char('m') => return Some(UIAction::ToggleMacroPalette),
                 KeyCode::Char('t') => return Some(UIAction::NewTab),
+                KeyCode::BackTab => return Some(UIAction::PrevTab),
+                KeyCode::Tab if key.modifiers.contains(KeyModifiers::SHIFT) => return Some(UIAction::PrevTab),
                 KeyCode::Tab => return Some(UIAction::NextTab),
-                KeyCode::Char('w') => return Some(UIAction::EnterWindowMode),
+                KeyCode::Char('w') => {
+                    log::info!("[KM] hardcoded match: Ctrl+W -> EnterWindowMode");
+                    return Some(UIAction::EnterWindowMode);
+                }
+                KeyCode::Char('W') => return Some(UIAction::CloseTab),
                 KeyCode::Char('e') => return Some(UIAction::SwitchFocus),
                 KeyCode::Char('b') => return Some(UIAction::ToggleExplorer),
                 KeyCode::Char('s') => return Some(UIAction::Core(telarex_core::command::Command::Save)),
@@ -76,7 +85,20 @@ impl KeyMapper {
             return Some(UIAction::Core(telarex_core::command::Command::GitStatus));
         }
 
-        // 4. Fallback for character keys (Never swallow them)
+        // 4. Fallback: handle raw control characters (0x01-0x1A) as Ctrl+letter
+        if !key.modifiers.contains(KeyModifiers::CONTROL) && !key.modifiers.contains(KeyModifiers::ALT) {
+            if let KeyCode::Char(c) = key.code {
+                let code = c as u32;
+                if (1..=26).contains(&code) {
+                    let letter = char::from_u32(code + 0x60).unwrap();
+                    log::info!("[KM] raw control char {:?} ({}) -> remapped to Ctrl+{}", c, code, letter);
+                    let fallback_key = KeyEvent::new_with_kind(KeyCode::Char(letter), KeyModifiers::CONTROL, key.kind);
+                    return self.resolve(fallback_key, mode, component);
+                }
+            }
+        }
+
+        // 5. Fallback for character keys (Never swallow them)
         if let KeyCode::Char(_) = key.code {
              // AltGr (reported as Ctrl+Alt) should NOT trigger shortcuts
              let is_strictly_control = key.modifiers.contains(KeyModifiers::CONTROL) && !key.modifiers.contains(KeyModifiers::ALT);
@@ -87,7 +109,10 @@ impl KeyMapper {
              }
         }
 
-        self.global.get(&key).cloned()
+         // 6. Config global map
+        let result = self.global.get(&key).cloned();
+        log::info!("[KM] resolve: code={:?}, mods={:?}, mode={:?}, result={:?}", key.code, key.modifiers, mode, result);
+        result
     }
 }
 
@@ -167,7 +192,6 @@ fn parse_action(s: &str) -> Option<UIAction> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::HashMap;
     use crossterm::event::{KeyCode, KeyModifiers, KeyEvent, KeyEventKind};
 
     fn make_key(code: KeyCode, mods: KeyModifiers) -> KeyEvent {
@@ -287,8 +311,8 @@ mod tests {
     #[test]
     fn test_resolve_window_mode_unknown_exits() {
         let m = mapper();
-        let q = make_key(KeyCode::Char('q'), KeyModifiers::NONE);
-        assert_eq!(m.resolve(q, "window", None), Some(UIAction::ExitMode));
+        let x = make_key(KeyCode::Char('x'), KeyModifiers::NONE);
+        assert_eq!(m.resolve(x, "window", None), Some(UIAction::ExitMode));
     }
 
     #[test]

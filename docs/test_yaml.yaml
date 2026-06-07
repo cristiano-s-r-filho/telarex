@@ -1,0 +1,41 @@
+# Example YAML for syntax highlighting test
+---
+project:
+  name: geometry-engine
+  version: 2.1.0
+  description: "2D geometry computation library"
+  license: MIT
+
+dependencies:
+  - name: lodash
+    version: ^4.17.21
+    optional: false
+  - name: jest
+    version: ^29.0.0
+    optional: true
+
+shapes:
+  triangle:
+    vertices: 3
+    area_formula: "0.5 * |(x1*(y2-y3) + x2*(y3-y1) + x3*(y1-y2))|"
+    properties:
+      - perimeter
+      - centroid
+      - incenter
+
+  circle:
+    vertices: 1
+    area_formula: "pi * r^2"
+    properties:
+      - circumference
+      - diameter
+      - sector
+
+test_cases:
+  - name: right_triangle
+    points:
+      - { x: 0, y: 0 }
+      - { x: 3, y: 0 }
+      - { x: 0, y: 4 }
+    expected_area: 6.0
+    tags: [basic, triangle]

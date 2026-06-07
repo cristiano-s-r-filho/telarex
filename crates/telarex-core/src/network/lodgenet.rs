@@ -14,10 +14,16 @@ use std::path::PathBuf;
 
 use super::{NetworkEvent, NetworkCommand};
 
+struct PendingJoinData {
+    peer_id: String,
+    public_key: Vec<u8>,
+    challenge: Vec<u8>,
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 enum WireMessage {
     Discovery { id: Uuid, name: String, owner: String, member_count: u32 },
-    Join { id: Uuid, public_key: Vec<u8> },
+    Join { id: Uuid, public_key: Vec<u8>, username: String },
     Leave { id: Uuid },
     Sync { id: Uuid, path: PathBuf, data: Vec<u8> },
     Challenge { id: Uuid, challenge: Vec<u8> },
@@ -25,6 +31,8 @@ enum WireMessage {
     Presence { id: Uuid, username: String },
     // BOOTSTRAP: Explicitly ask for a lodge's owner on the global topic
     SeekLodge { id: Uuid },
+    JoinApproved { id: Uuid, peer_id: String },
+    JoinRejected { id: Uuid, peer_id: String },
 }
 
 pub struct NetworkManager {
@@ -37,7 +45,7 @@ impl NetworkManager {
         Self { event_tx, cmd_rx }
     }
 
-    pub async fn start(self, identity_seed: String) -> anyhow::Result<()> {
+    pub async fn start(self, identity_seed: String, listen_addr: Option<String>) -> anyhow::Result<()> {
         let mut seed_bytes = [0u8; 32];
         let decoded_seed = hex::decode(&identity_seed).unwrap_or_else(|_| vec![0;32]);
         if decoded_seed.len() >= 32 {
@@ -87,7 +95,8 @@ impl NetworkManager {
         let global_topic = gossipsub::IdentTopic::new("telarex-lodgenet-discovery");
         swarm.behaviour_mut().gossipsub.subscribe(&global_topic)?;
 
-        swarm.listen_on("/ip4/0.0.0.0/tcp/0".parse()?)?;
+        let addr: libp2p::Multiaddr = listen_addr.unwrap_or_else(|| "/ip4/0.0.0.0/tcp/0".to_string()).parse()?;
+        swarm.listen_on(addr)?;
 
         let tx = self.event_tx;
         let rx_tx = tx.clone();
@@ -105,7 +114,7 @@ impl NetworkManager {
 
         let mut local_lodges: HashMap<Uuid, String> = HashMap::new();
         let mut lodge_members: HashMap<Uuid, Vec<String>> = HashMap::new();
-        let mut pending_challenges: HashMap<Uuid, Vec<u8>> = HashMap::new();
+        let mut pending_challenges: HashMap<Uuid, Vec<PendingJoinData>> = HashMap::new();
         let mut active_topics: HashMap<Uuid, gossipsub::IdentTopic> = HashMap::new();
 
         tokio::spawn(async move {
@@ -144,10 +153,22 @@ impl NetworkManager {
                                             let display_name = format!("{} by {}", name, owner);
                                             let _ = tx.send(NetworkEvent::LodgeDiscovery { id, name: display_name, peer_id: propagation_source.to_string() }).await;
                                         }
-                                        WireMessage::Join { id, public_key: _ } => {
+                                        WireMessage::Join { id, public_key, username } => {
                                             if local_lodges.contains_key(&id) {
                                                 let challenge = rand::random::<[u8; 32]>().to_vec();
-                                                pending_challenges.insert(id, challenge.clone());
+                                                let peer_str = propagation_source.to_string();
+                                                let entry = pending_challenges.entry(id).or_insert_with(Vec::new);
+                                                entry.push(PendingJoinData {
+                                                    peer_id: peer_str.clone(),
+                                                    public_key: public_key.clone(),
+                                                    challenge: challenge.clone(),
+                                                });
+                                                let _ = tx.send(NetworkEvent::JoinRequest {
+                                                    lodge_id: id,
+                                                    peer_id: peer_str,
+                                                    username,
+                                                    public_key,
+                                                }).await;
                                                 let _ = tx.send(NetworkEvent::AuthChallenge { lodge_id: id, challenge }).await;
                                             }
                                         }
@@ -161,8 +182,16 @@ impl NetworkManager {
                                             let _ = tx.send(NetworkEvent::AuthChallenge { lodge_id: id, challenge }).await;
                                         }
                                         WireMessage::Response { id, proof } => {
-                                            if let Some(challenge) = pending_challenges.remove(&id) {
-                                                let _ = tx.send(NetworkEvent::AuthVerify { lodge_id: id, challenge, proof }).await;
+                                            if let Some(entries) = pending_challenges.get_mut(&id) {
+                                                if let Some(pos) = entries.iter().position(|e| e.challenge.len() > 0) {
+                                                    let entry = entries.remove(pos);
+                                                    let _ = tx.send(NetworkEvent::AuthVerify {
+                                                        lodge_id: id,
+                                                        challenge: entry.challenge,
+                                                        proof,
+                                                        public_key: entry.public_key,
+                                                    }).await;
+                                                }
                                             }
                                         }
                                         WireMessage::Sync { id, path, data } => {
@@ -180,6 +209,12 @@ impl NetworkManager {
                                                 // RE-BROADCAST discovery if someone asks
                                                 let _ = tx.send(NetworkEvent::LodgeDiscovery { id, name: name.clone(), peer_id: local_peer_id.to_string() }).await;
                                             }
+                                        }
+                                        WireMessage::JoinApproved { id, peer_id: _ } => {
+                                            let _ = tx.send(NetworkEvent::LodgeJoined { lodge_id: id }).await;
+                                        }
+                                        WireMessage::JoinRejected { id, peer_id: _ } => {
+                                            let _ = tx.send(NetworkEvent::JoinRejected { lodge_id: id }).await;
                                         }
                                     }
                                 }
@@ -217,7 +252,7 @@ impl NetworkManager {
                                 }
                                 Some(WireMessage::Sync { id: lodge_id, path, data })
                             }
-                            NetworkCommand::JoinLodge { lodge_id, public_key } => {
+                            NetworkCommand::JoinLodge { lodge_id, public_key, username } => {
                                 // HARDENING: Actively seek peers for this lodge
                                 let _ = swarm.behaviour_mut().kademlia.get_record(kad::RecordKey::new(lodge_id.as_bytes()));
                                 let topic = gossipsub::IdentTopic::new(format!("telarex-lodge-{}", lodge_id));
@@ -229,7 +264,7 @@ impl NetworkManager {
                                     let _ = swarm.behaviour_mut().gossipsub.publish(global_topic.clone(), encoded);
                                 }
 
-                                Some(WireMessage::Join { id: lodge_id, public_key })
+                                Some(WireMessage::Join { id: lodge_id, public_key, username })
                             }
                             NetworkCommand::LeaveLodge { lodge_id } => {
                                 if let Some(topic) = active_topics.remove(&lodge_id) {
@@ -263,6 +298,19 @@ impl NetworkManager {
                                     target_topic = topic.clone();
                                 }
                                 Some(WireMessage::Response { id: lodge_id, proof })
+                            }
+                            NetworkCommand::ApproveJoin { lodge_id, peer_id } => {
+                                let _ = swarm.behaviour_mut().kademlia.get_record(kad::RecordKey::new(lodge_id.as_bytes()));
+                                if let Some(topic) = active_topics.get(&lodge_id) {
+                                    target_topic = topic.clone();
+                                }
+                                Some(WireMessage::JoinApproved { id: lodge_id, peer_id })
+                            }
+                            NetworkCommand::RejectJoin { lodge_id, peer_id } => {
+                                if let Some(topic) = active_topics.get(&lodge_id) {
+                                    target_topic = topic.clone();
+                                }
+                                Some(WireMessage::JoinRejected { id: lodge_id, peer_id })
                             }
                         };
 

@@ -5,7 +5,7 @@ This roadmap outlines the path to a stable, user-ready Beta release of TelaRex. 
 ## 1. Feature Freeze & Hardening
 - **LodgeNet 2.0**: Finalize the public-internet resilience (Phase 2 of previous plan).
 - **Quantum Identity**: Finalize ML-DSA transition.
-- **Git Sidecar**: Implement Git operations as a parallel "manual" workflow, ensuring it never collides with Automerge's automated sync.
+- **Git Sidecar**: ✅ Done — manual git ops alongside Automerge, no cross-collision.
 - **Bento UI Completion**: Standardize the visual language across all screens.
 
 ## 2. Testing Expansion (The "Shield" Initiative)
@@ -44,6 +44,6 @@ This roadmap outlines the path to a stable, user-ready Beta release of TelaRex. 
 
 ## 6. Implementation Stages
 1. **Stage 1**: ✅ "Shield" pass — all 90 tests written.
-2. **Stage 2**: ✅ "Clean House" — 6 TUI logic quirks resolved (split ratio, event latency, panic safety, keyboard cleanup, gitignore, theme accessor).
-3. **Stage 3**: "Git Sidecar" (Implement manual Git commit/push actions).
+2. **Stage 2**: ✅ "Clean House" — 6 TUI logic quirks resolved.
+3. **Stage 3**: ✅ "Git Sidecar" — GitSidecar module, 6 git commands, status bar branch/dirty indicator, commit/push/pull/log.
 4. **Stage 4**: Final Bento Polish & Documentation.

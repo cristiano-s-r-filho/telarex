@@ -3,7 +3,7 @@ use ratatui::{
     layout::{Rect, Layout, Constraint},
     style::{Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Clear, Paragraph, List, ListItem, Padding},
+    widgets::{Block, Borders, Paragraph, List, ListItem, Padding},
     Frame,
 };
 use crate::tui_compat::{AppContext, Component, DrawContext, Event, EventResult};
@@ -11,9 +11,9 @@ use telarex_core::config::{self, TelaRexConfig, ThemeEngine};
 
 use crate::theme::Theme;
 use crate::utils::sanitize;
-use ratatui::prelude::Stylize;
 
 use crate::components::modals::InputModal;
+use super::modal::Modal;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ConfigCategory {
@@ -38,7 +38,7 @@ impl ConfigCategory {
 }
 
 pub struct ConfigModal {
-    pub active: bool,
+    pub modal: Modal,
     config: TelaRexConfig,
     modified: bool,
     selected_category: usize,
@@ -58,7 +58,7 @@ impl ConfigModal {
         let _ = theme_engine.load_themes("themes");
         let available_themes = theme_engine.list_themes();
         Self {
-            active: false,
+            modal: Modal::new(" Configuration (Ctrl+S to save) "),
             config,
             modified: false,
             selected_category: 0,
@@ -77,7 +77,7 @@ impl ConfigModal {
     }
 
     pub fn show(&mut self) {
-        self.active = true;
+        self.modal.show();
         self.config = config::load(self.session_id.as_deref()).unwrap_or_default();
         self.modified = false;
         self.selected_category = 0;
@@ -87,7 +87,7 @@ impl ConfigModal {
     }
 
     pub fn hide(&mut self) {
-        self.active = false;
+        self.modal.hide();
     }
 
     pub fn get_config(&self) -> &TelaRexConfig {
@@ -141,8 +141,6 @@ impl ConfigModal {
         let current = self.available_themes.iter().position(|t| t == &self.config.editor.theme).unwrap_or(0);
         let next = if forward { (current + 1) % self.available_themes.len() } else { if current == 0 { self.available_themes.len() - 1 } else { current - 1 } };
         self.config.editor.theme = self.available_themes[next].clone();
-        
-        // Notify engine of change
         let _ = self.theme_engine.set_theme(&self.config.editor.theme);
         self.theme = Theme::from_stylesheet(self.theme_engine.get_current());
         self.modified = true;
@@ -162,9 +160,9 @@ impl ConfigModal {
 
 impl Component for ConfigModal {
     fn handle_event(&mut self, event: &Event, ctx: &mut AppContext) -> EventResult {
-        if !self.active { return EventResult::Unhandled; }
+        if !self.modal.active { return EventResult::Unhandled; }
 
-        if self.input_modal.active {
+        if self.input_modal.modal.active {
             let res = self.input_modal.handle_event(event, ctx);
             if let Some(new_val) = self.input_modal.take_value() {
                 if !new_val.is_empty() {
@@ -197,8 +195,8 @@ impl Component for ConfigModal {
                             (ConfigCategory::Editor, 2) => self.toggle_line_numbers(),
                             (ConfigCategory::Editor, 3) => self.toggle_auto_save(),
                             (ConfigCategory::Editor, 4) => self.toggle_wrap(),
-                            (ConfigCategory::Network, 0) => { self.input_modal.title = " Username ".to_string(); self.input_modal.show(); }
-                            (ConfigCategory::Network, 1) => { self.input_modal.title = " Bootstrap Node ".to_string(); self.input_modal.show(); }
+                            (ConfigCategory::Network, 0) => { self.input_modal.modal.title = " Username ".to_string(); self.input_modal.show(); }
+                            (ConfigCategory::Network, 1) => { self.input_modal.modal.title = " Bootstrap Node ".to_string(); self.input_modal.show(); }
                             _ => {}
                         }
                     }
@@ -227,19 +225,13 @@ impl Component for ConfigModal {
     }
 
     fn draw(&self, frame: &mut Frame, area: Rect, ctx: &DrawContext) {
-        if !self.active { return; }
+        if !self.modal.active { return; }
 
-        let modal_area = crate::utils::centered_rect_fixed(80, 25, area);
-        frame.render_widget(Clear, modal_area);
+        let inner_area = match self.modal.render(frame, area, &self.theme, 80, 30) {
+            Some(r) => r,
+            None => return,
+        };
 
-        let block = Block::default()
-            .borders(Borders::ALL)
-            .title(sanitize(" Configuration (Ctrl+S to save) "))
-            .border_style(Style::default().fg(self.theme.border_active))
-            .bg(self.theme.bg);
-        frame.render_widget(&block, modal_area);
-
-        let inner_area = block.inner(modal_area);
         let chunks = Layout::horizontal([
             Constraint::Length(18), 
             Constraint::Min(0),
@@ -262,10 +254,10 @@ impl Component for ConfigModal {
         match self.current_category() {
             ConfigCategory::Editor => {
                 fields.push(("Tab Size", format!("{}", self.config.editor.tab_size)));
-                fields.push(("Vim Mode", if self.config.editor.vim_mode { "On" } else { "Off" }.to_string()));
-                fields.push(("Line Numbers", if self.config.editor.line_numbers { "On" } else { "Off" }.to_string()));
-                fields.push(("Auto-save", if self.config.editor.auto_save { "On" } else { "Off" }.to_string()));
-                fields.push(("Wrap Text", if self.config.editor.wrap_text { "On" } else { "Off" }.to_string()));
+                fields.push(("Vim Mode", if self.config.editor.vim_mode { "✓".to_string() } else { "✗".to_string() }));
+                fields.push(("Line Numbers", if self.config.editor.line_numbers { "✓".to_string() } else { "✗".to_string() }));
+                fields.push(("Auto-save", if self.config.editor.auto_save { "✓".to_string() } else { "✗".to_string() }));
+                fields.push(("Wrap Text", if self.config.editor.wrap_text { "✓".to_string() } else { "✗".to_string() }));
             }
             ConfigCategory::Appearance => {
                 fields.push(("Theme", self.config.editor.theme.clone()));
@@ -275,7 +267,41 @@ impl Component for ConfigModal {
                 fields.push(("Bootstrap", self.config.network.bootstrap_node.clone()));
             }
             ConfigCategory::Keymaps => {
-                fields.push(("Action", "Bindings read-only".to_string()));
+                fields.push(("=== GLOBAL ===", String::new()));
+                fields.push(("Ctrl+P", "Command Palette".to_string()));
+                fields.push(("Ctrl+F", "Search".to_string()));
+                fields.push(("Ctrl+M", "Macro Palette".to_string()));
+                fields.push(("Ctrl+T", "New Tab".to_string()));
+                fields.push(("Ctrl+Tab", "Next Tab".to_string()));
+                fields.push(("Ctrl+Shift+Tab", "Prev Tab".to_string()));
+                fields.push(("Ctrl+W", "Window Mode".to_string()));
+                fields.push(("Ctrl+Shift+W", "Close Tab".to_string()));
+                fields.push(("Ctrl+E", "Switch Focus".to_string()));
+                fields.push(("Ctrl+B", "Toggle Explorer".to_string()));
+                fields.push(("Ctrl+S", "Save".to_string()));
+                fields.push(("Ctrl+C", "Copy".to_string()));
+                fields.push(("Ctrl+V", "Paste".to_string()));
+                fields.push(("Ctrl+G", "Git Status".to_string()));
+                fields.push(("Ctrl+Q", "Quit".to_string()));
+                fields.push(("", String::new()));
+                fields.push(("=== WINDOW MODE ===", String::new()));
+                fields.push(("V", "Split Vertical".to_string()));
+                fields.push(("S", "Split Horizontal".to_string()));
+                fields.push(("H / Left", "Focus Left".to_string()));
+                fields.push(("L / Right", "Focus Right".to_string()));
+                fields.push(("K / Up", "Focus Up".to_string()));
+                fields.push(("J / Down", "Focus Down".to_string()));
+                fields.push(("C / Q", "Close Pane".to_string()));
+                fields.push(("other", "Exit Mode".to_string()));
+                if !self.config.keymaps.global.is_empty() {
+                    fields.push(("", String::new()));
+                    fields.push(("=== CONFIG FILE ===", String::new()));
+                    let mut pairs: Vec<_> = self.config.keymaps.global.iter().collect();
+                    pairs.sort_by_key(|(k, _)| (*k).clone());
+                    for (key, action) in &pairs {
+                        fields.push((key.as_str(), action.to_string()));
+                    }
+                }
             }
         }
 
@@ -283,13 +309,21 @@ impl Component for ConfigModal {
         for (i, (label, value)) in fields.iter().enumerate() {
             let is_selected = self.focus_on_fields && i == self.selected_field;
             let style = if is_selected { self.theme.list_selected } else { Style::default().fg(self.theme.fg) };
-            field_widgets.push(Line::from(vec![
-                Span::styled(format!(" {:<15} ", sanitize(label)), self.theme.status_label),
-                Span::styled(format!(" {} ", sanitize(value)), style),
-            ]));
+            if label.starts_with("===") {
+                field_widgets.push(Line::from(vec![
+                    Span::styled(format!(" {}", sanitize(label)), self.theme.status_label.add_modifier(Modifier::BOLD)),
+                ]));
+            } else if label.is_empty() {
+                field_widgets.push(Line::from(vec![Span::raw("")]));
+            } else {
+                field_widgets.push(Line::from(vec![
+                    Span::styled(format!(" {:<16} ", sanitize(label)), self.theme.status_label),
+                    Span::styled(format!(" {}", sanitize(value)), style),
+                ]));
+            }
         }
         frame.render_widget(Paragraph::new(field_widgets).block(Block::default().padding(Padding::uniform(1))), fields_area);
 
-        if self.input_modal.active { self.input_modal.draw(frame, area, ctx); }
+        if self.input_modal.modal.active { self.input_modal.draw(frame, area, ctx); }
     }
 }

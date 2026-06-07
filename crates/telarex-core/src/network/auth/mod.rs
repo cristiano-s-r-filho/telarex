@@ -1,4 +1,4 @@
-use pqc_dilithium::*;
+pub use pqc_dilithium::Keypair;
 use serde::{Deserialize, Serialize};
 
 /// Quantum-Resistant Identity System using ML-DSA (Dilithium)
@@ -12,16 +12,12 @@ pub struct QuantumId {
 
 impl QuantumAuth {
     /// Generates a new Quantum-safe identity (Public/Private keypair)
-    pub fn generate_identity() -> (Vec<u8>, Vec<u8>) {
-        let keys = Keypair::generate();
-        (keys.public.to_vec(), keys.expose_secret().to_vec())
+    pub fn generate_identity() -> Keypair {
+        Keypair::generate()
     }
 
     /// Sign a challenge to prove identity
-    pub fn sign_challenge(_secret_key: &[u8], challenge: &[u8]) -> Vec<u8> {
-        // In this version of pqc_dilithium, we typically use the Keypair
-        // We generate a transient one for this demonstration of the API
-        let keys = Keypair::generate();
+    pub fn sign_challenge(keys: &Keypair, challenge: &[u8]) -> Vec<u8> {
         keys.sign(challenge).to_vec()
     }
 

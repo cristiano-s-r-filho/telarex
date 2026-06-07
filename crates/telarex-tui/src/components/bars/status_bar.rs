@@ -22,6 +22,8 @@ pub struct StatusBar {
     pub username: String,
     pub git_branch: Option<String>,
     pub git_dirty: usize,
+    pub tab_index: usize,
+    pub tab_count: usize,
 }
 
 impl Default for StatusBar {
@@ -39,6 +41,8 @@ impl Default for StatusBar {
             username: "User".to_string(),
             git_branch: None,
             git_dirty: 0,
+            tab_index: 0,
+            tab_count: 0,
         }
     }
 }
@@ -53,13 +57,18 @@ impl Component for StatusBar {
         
         let layout = Layout::horizontal([
             Constraint::Fill(1), // Path & Mode & Git
-            Constraint::Length(45), // Lodge & Connectivity
+            Constraint::Length(60), // Lodge & Connectivity
             Constraint::Length(30), // Cursor & User
         ]).split(area);
 
-        // 1. Path & Mode & Git Pill
+        // 1. Path & Mode & Tab & Git Pill
         let path = self.file_path.as_deref().unwrap_or("Untitled");
         let mod_marker = if self.modified { " ●" } else { "" };
+        let tab_pill = if self.tab_count > 0 {
+            format!(" Tab {}/{} ", self.tab_index + 1, self.tab_count)
+        } else {
+            String::new()
+        };
         let git_pill = self.git_branch.as_ref().map(|b| {
             if self.git_dirty > 0 {
                 format!(" {} +{} ", b, self.git_dirty)
@@ -69,6 +78,7 @@ impl Component for StatusBar {
         }).unwrap_or_default();
         let left_pill = Line::from(vec![
             Span::styled(format!(" {} ", self.editor_mode), Style::default().bg(Color::Blue).fg(Color::Black).add_modifier(Modifier::BOLD)),
+            Span::styled(tab_pill, Style::default().bg(Color::Rgb(40, 40, 40)).fg(Color::Green).add_modifier(Modifier::BOLD)),
             Span::raw(format!(" {} ", path)),
             Span::styled(mod_marker, Style::default().fg(Color::Yellow)),
             Span::styled(git_pill, Style::default().fg(Color::DarkGray).bg(Color::Rgb(30, 30, 30))),
@@ -77,9 +87,9 @@ impl Component for StatusBar {
 
         // 2. Lodge Pill
         let lodge_color = if self.lodge_status == "Online" { Color::Green } else { Color::Red };
-        let id_str = self.lodge_id.map(|id| id.to_string()[..8].to_string()).unwrap_or_else(|| "none".to_string());
+        let id_str = self.lodge_id.map(|id| id.to_string()).unwrap_or_else(|| "none".to_string());
         let lodge_pill = Line::from(vec![
-            Span::styled(" 󰒄 ", Style::default().fg(lodge_color)),
+            Span::styled(" ● ", Style::default().fg(lodge_color)),
             Span::styled(format!("LODGE:{} ", id_str), Style::default().fg(Color::White)),
             Span::styled(format!(" ({})", self.peer_count), Style::default().fg(Color::DarkGray)),
         ]);

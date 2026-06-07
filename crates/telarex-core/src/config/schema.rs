@@ -10,7 +10,6 @@ pub struct TelaRexConfig {
     pub profile: UserProfile,
     pub network: NetworkConfig,
     pub recent_projects: Vec<String>,
-    pub theme: HashMap<String, String>, 
     pub keymaps: KeymapConfig,
 }
 
@@ -31,7 +30,9 @@ pub struct KeymapConfig {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct UserProfile {
     pub username: String,
-    pub identity_seed: String, 
+    pub identity_seed: String,
+    pub display_name: String,
+    pub bio: String,
 }
 
 impl Default for UserProfile {
@@ -39,9 +40,12 @@ impl Default for UserProfile {
         use rand::Rng;
         let mut rng = rand::thread_rng();
         let seed: [u8; 32] = rng.gen();
+        let username = format!("User_{}", rng.gen::<u16>());
         Self {
-            username: format!("User_{}", rng.gen::<u16>()),
+            display_name: username.clone(),
+            username,
             identity_seed: hex::encode(seed),
+            bio: String::new(),
         }
     }
 }
@@ -71,26 +75,12 @@ impl Default for EditorConfig {
 
 impl Default for TelaRexConfig {
     fn default() -> Self {
-        let mut theme = HashMap::new();
-        theme.insert("theme".to_string(), "Tokyo Night".to_string());
-        theme.insert("ui.bg".to_string(), "#1a1b26".to_string());
-        theme.insert("ui.fg".to_string(), "#a9b1d6".to_string());
-        theme.insert("ui.fg_muted".to_string(), "#565f89".to_string());
-        theme.insert("ui.border.active".to_string(), "#7aa2f7".to_string());
-        theme.insert("ui.border.inactive".to_string(), "#3b4261".to_string());
-        theme.insert("ui.selection.bg".to_string(), "#7aa2f7".to_string());
-        theme.insert("ui.surface".to_string(), "#24283b".to_string());
-        theme.insert("ui.error".to_string(), "#f7768e".to_string());
-        theme.insert("ui.warning".to_string(), "#ff9e64".to_string());
-        theme.insert("ui.success".to_string(), "#9ece6a".to_string());
-        
         Self {
             version: CURRENT_CONFIG_VERSION,
             editor: EditorConfig::default(),
             profile: UserProfile::default(),
             network: NetworkConfig::default(),
             recent_projects: Vec::new(),
-            theme,
             keymaps: KeymapConfig::default_mappings(),
         }
     }
@@ -104,7 +94,9 @@ impl KeymapConfig {
         global.insert("ctrl-f".to_string(), "EnterSearchMode".to_string());
         global.insert("ctrl-b".to_string(), "ToggleExplorer".to_string());
         global.insert("ctrl-e".to_string(), "SwitchFocus".to_string());
-        
+        global.insert("ctrl-s".to_string(), "Save".to_string());
+        global.insert("ctrl-g".to_string(), "GitStatus".to_string());
+
         Self {
             global,
             ..Default::default()

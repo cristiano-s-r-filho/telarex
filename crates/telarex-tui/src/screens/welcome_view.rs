@@ -38,6 +38,7 @@ pub struct WelcomeView {
     pub last_opened: Option<String>,
     selected_menu_item: usize,
     subtitle: String,
+    lodge_search_query: String,
 }
 
 impl WelcomeView {
@@ -73,6 +74,7 @@ impl WelcomeView {
             last_opened: None,
             selected_menu_item: 0,
             subtitle,
+            lodge_search_query: String::new(),
         }
     }
 
@@ -87,13 +89,13 @@ impl WelcomeView {
 
     fn menu_items(&self) -> Vec<(&'static str, &'static str, Color)> {
         vec![
-            ("N", "New Project", Color::Green),
-            ("O", "Open Folder", Color::Blue),
-            ("R", "Recent Files", Color::Yellow),
-            ("L", "Join Lodge", Color::Magenta),
-            ("J", "Join by ID", Color::Cyan),
+            ("N", "New Project", self.theme.success),
+            ("O", "Open Folder", self.theme.info),
+            ("R", "Recent Files", self.theme.warning),
+            ("L", "Join Lodge", self.theme.accent),
+            ("J", "Join by ID", self.theme.info),
             ("C", "Settings", Color::Gray),
-            ("Q", "Quit", Color::Red),
+            ("Q", "Quit", self.theme.error),
         ]
     }
 
@@ -106,10 +108,24 @@ impl WelcomeView {
                     self.recent_projects_modal_active = true;
                 }
             }
-            "L" => self.discovered_lodges_modal_active = true,
+            "L" => {
+                self.discovered_lodges_state.borrow_mut().select(Some(0));
+                self.discovered_lodges_modal_active = true;
+            }
             "J" => self.join_by_id_modal.show(),
             "C" => self.open_config = true,
             _ => {}
+        }
+    }
+
+    fn filtered_lodges(&self) -> Vec<&DiscoveredLodge> {
+        if self.lodge_search_query.is_empty() {
+            self.discovered_lodges.iter().collect()
+        } else {
+            let q = self.lodge_search_query.to_lowercase();
+            self.discovered_lodges.iter()
+                .filter(|l| l.name.to_lowercase().contains(&q) || l.id.to_string().contains(&q))
+                .collect()
         }
     }
 }
@@ -159,8 +175,18 @@ impl Component for WelcomeView {
             } else {
                 Style::default()
             };
+            let symbol = match *key {
+                "N" => "◆",
+                "O" => "▸",
+                "R" => "○",
+                "L" => "●",
+                "J" => "◉",
+                "C" => "◇",
+                "Q" => "■",
+                _ => " ",
+            };
             menu_lines.push(ListItem::new(Line::from(vec![
-                Span::styled(format!(" [{}] ", key), Style::default().fg(*color).add_modifier(Modifier::BOLD)),
+                Span::styled(format!(" {}  ", symbol), Style::default().fg(*color).add_modifier(Modifier::BOLD)),
                 Span::raw(*label),
             ])).style(style));
         }
@@ -172,7 +198,7 @@ impl Component for WelcomeView {
         // Status Box
         let status_lines = vec![
             Line::from(vec![
-                Span::styled(" 󰀦 SESSION DATA ", self.theme.header),
+                Span::styled(" ◆ SESSION DATA ", self.theme.header),
             ]),
             Line::from(""),
             Line::from(vec![
@@ -194,7 +220,7 @@ impl Component for WelcomeView {
             Line::from(""),
             Line::from(vec![
                 Span::styled(" Status: ", self.theme.status_label),
-                Span::styled(" HARDENED ", Style::default().bg(Color::Green).fg(Color::Black).add_modifier(Modifier::BOLD)),
+                Span::styled(" READY ", Style::default().bg(self.theme.success).fg(Color::Black).add_modifier(Modifier::BOLD)),
             ]),
         ];
         let status_box = Paragraph::new(status_lines)
@@ -202,7 +228,7 @@ impl Component for WelcomeView {
         frame.render_widget(status_box, main_content[1]);
 
         // 4. Footer
-        let footer = Paragraph::new(" [↑/↓] Navigate  [ENTER] Select  [Ctrl+Q] Exit ")
+        let footer = Paragraph::new(" ◆ [↑/↓] Navigate  [Enter] Select  [key] Shortcut  [Ctrl+Q] Exit ◆ ")
             .alignment(Alignment::Center)
             .style(self.theme.footer_hint);
         frame.render_widget(footer, chunks[3]);
@@ -215,34 +241,63 @@ impl Component for WelcomeView {
                 .map(|p| ListItem::new(format!(" {} ", sanitize(p))))
                 .collect();
             let list = List::new(items)
-                .block(Block::default().borders(Borders::ALL).title(" Recent Projects ").border_style(Style::default().fg(Color::Yellow)))
+                .block(Block::default().borders(Borders::ALL).title(" Recent Projects ").border_style(Style::default().fg(self.theme.warning)))
                 .highlight_style(self.theme.list_selected);
             frame.render_stateful_widget(list, modal_area, &mut self.recent_projects_state.borrow_mut());
         }
 
         if self.discovered_lodges_modal_active {
-            let modal_area = crate::utils::centered_rect_fixed(60, 15, area);
+            let modal_area = crate::utils::centered_rect_fixed(70, 18, area);
             frame.render_widget(Clear, modal_area);
-            
-            let items: Vec<ListItem> = self.discovered_lodges.iter()
-                .map(|l| ListItem::new(format!(" {} (via {}) ", sanitize(&l.name), sanitize(&l.peer_id))))
+
+            let inner = Layout::vertical([
+                Constraint::Length(3),
+                Constraint::Min(0),
+            ]).split(modal_area);
+
+            // Search bar
+            let search_text = if self.lodge_search_query.is_empty() {
+                " Type to search lodges...".to_string()
+            } else {
+                format!(" Search: {}", self.lodge_search_query)
+            };
+            let search_style = if self.lodge_search_query.is_empty() {
+                self.theme.list_inactive
+            } else {
+                Style::default().fg(self.theme.fg)
+            };
+            frame.render_widget(
+                Paragraph::new(search_text).style(search_style)
+                    .block(Block::default().borders(Borders::ALL).title(" Filter ").border_style(Style::default().fg(self.theme.border_active))),
+                inner[0],
+            );
+
+            let filtered = self.filtered_lodges();
+            let items: Vec<ListItem> = filtered.iter()
+                .map(|l| {
+                    let peer_short = if l.peer_id.len() > 12 { format!("{}…", &l.peer_id[..12]) } else { l.peer_id.clone() };
+                    ListItem::new(format!(" {} [{}] ", sanitize(&l.name), peer_short))
+                })
                 .collect();
             let list = List::new(items)
-                .block(Block::default().borders(Borders::ALL).title(" Discovered Lodges ").border_style(Style::default().fg(Color::Magenta)))
-                .highlight_symbol("> ")
+                .block(Block::default().borders(Borders::ALL).title(" Discovered Lodges ").border_style(Style::default().fg(self.theme.accent)))
+                .highlight_symbol("▶ ")
                 .highlight_style(self.theme.list_selected);
-            frame.render_stateful_widget(list, modal_area, &mut self.discovered_lodges_state.borrow_mut());
+            frame.render_stateful_widget(list, inner[1], &mut self.discovered_lodges_state.borrow_mut());
         }
+
+        self.input_modal.draw(frame, area, _ctx);
+        self.join_by_id_modal.draw(frame, area, _ctx);
     }
 
     fn handle_event(&mut self, event: &Event, ctx: &mut AppContext) -> EventResult {
-        if self.input_modal.active {
+        if self.input_modal.modal.active {
             let res = self.input_modal.handle_event(event, ctx);
             if let Some(path) = self.input_modal.take_value() { self.open_editor_with_path = Some(path); }
             return res;
         }
 
-        if self.join_by_id_modal.active {
+        if self.join_by_id_modal.modal.active {
             let res = self.join_by_id_modal.handle_event(event, ctx);
             if let Some(uuid_str) = self.join_by_id_modal.take_value() {
                 if let Ok(id) = Uuid::parse_str(&uuid_str) { self.join_lodge_requested = Some(id); }
@@ -256,6 +311,7 @@ impl Component for WelcomeView {
                 KeyCode::Esc => {
                     self.recent_projects_modal_active = false;
                     self.discovered_lodges_modal_active = false;
+                    self.lodge_search_query.clear();
                     EventResult::Handled
                 }
                 KeyCode::Down => {
@@ -263,6 +319,14 @@ impl Component for WelcomeView {
                         let mut state = self.recent_projects_state.borrow_mut();
                         let i = match state.selected() { Some(i) => (i + 1) % self.recent_projects.len(), None => 0 };
                         state.select(Some(i));
+                    } else if self.discovered_lodges_modal_active {
+                        let mut state = self.discovered_lodges_state.borrow_mut();
+                        let filtered = self.filtered_lodges();
+                        let i = match state.selected() {
+                            Some(i) => if filtered.is_empty() { None } else { Some((i + 1) % filtered.len()) },
+                            None => if filtered.is_empty() { None } else { Some(0) },
+                        };
+                        state.select(i);
                     } else {
                         self.selected_menu_item = (self.selected_menu_item + 1) % self.menu_items().len();
                     }
@@ -273,6 +337,14 @@ impl Component for WelcomeView {
                         let mut state = self.recent_projects_state.borrow_mut();
                         let i = match state.selected() { Some(i) => if i == 0 { self.recent_projects.len() - 1 } else { i - 1 }, None => 0 };
                         state.select(Some(i));
+                    } else if self.discovered_lodges_modal_active {
+                        let mut state = self.discovered_lodges_state.borrow_mut();
+                        let filtered = self.filtered_lodges();
+                        let i = match state.selected() {
+                            Some(i) => if i == 0 { filtered.len().saturating_sub(1) } else { i - 1 },
+                            None => filtered.len().saturating_sub(1),
+                        };
+                        state.select(if filtered.is_empty() { None } else { Some(i) });
                     } else {
                         self.selected_menu_item = if self.selected_menu_item == 0 { self.menu_items().len() - 1 } else { self.selected_menu_item - 1 };
                     }
@@ -285,6 +357,16 @@ impl Component for WelcomeView {
                             self.open_editor_with_path = Some(self.recent_projects[i].clone());
                             self.recent_projects_modal_active = false;
                         }
+                    } else if self.discovered_lodges_modal_active {
+                        let state = self.discovered_lodges_state.borrow();
+                        if let Some(i) = state.selected() {
+                            let filtered = self.filtered_lodges();
+                            if let Some(lodge) = filtered.get(i) {
+                                self.join_lodge_requested = Some(lodge.id);
+                                self.discovered_lodges_modal_active = false;
+                                self.lodge_search_query.clear();
+                            }
+                        }
                     } else {
                         let key = self.menu_items()[self.selected_menu_item].0;
                         self.handle_menu_key(key);
@@ -292,8 +374,23 @@ impl Component for WelcomeView {
                     EventResult::Handled
                 }
                 KeyCode::Char(c) => {
-                    self.handle_menu_key(&c.to_string());
+                    if self.discovered_lodges_modal_active {
+                        self.lodge_search_query.push(c);
+                        let filtered = self.filtered_lodges();
+                        self.discovered_lodges_state.borrow_mut().select(if filtered.is_empty() { None } else { Some(0) });
+                    } else {
+                        self.handle_menu_key(&c.to_string());
+                    }
                     EventResult::Handled
+                }
+                KeyCode::Backspace => {
+                    if self.discovered_lodges_modal_active {
+                        self.lodge_search_query.pop();
+                        let filtered = self.filtered_lodges();
+                        self.discovered_lodges_state.borrow_mut().select(if filtered.is_empty() { None } else { Some(0) });
+                        return EventResult::Handled;
+                    }
+                    EventResult::Unhandled
                 }
                 _ => EventResult::Unhandled,
             }

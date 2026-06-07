@@ -11,8 +11,8 @@ use telarex_core::actor::{BufferActor, BufferActorCommand};
 use tokio::sync::mpsc;
 use uuid::Uuid;
 use std::collections::HashMap;
-use std::sync::Arc;
 
+use telarex_core::workspace::{PendingJoin, WorkspaceMember};
 use crate::theme::Theme;
 
 #[derive(PartialEq, Clone, Copy)]
@@ -34,13 +34,16 @@ pub struct App {
     buffer_tx: mpsc::Sender<BufferActorCommand>,
     peer_sync_states: HashMap<(Uuid, std::path::PathBuf, String), automerge::sync::State>,
     lodge_members: HashMap<Uuid, Vec<String>>,
-    identity_keys: (Vec<u8>, Vec<u8>), // (Public, Secret)
+    pending_join_requests: Vec<PendingJoin>,
+    identity_keys: telarex_core::network::auth::Keypair,
     last_shared_lodge: Option<Uuid>,
     last_tick: Instant,
     config_data: config::TelaRexConfig,
     active_lodge: Option<Uuid>,
     theme: Theme,
     theme_engine: telarex_core::config::ThemeEngine,
+    auto_save_counter: u32,
+    auto_save_enabled: bool,
 }
 
 impl App {
@@ -78,6 +81,7 @@ impl App {
 
         let mut editor = EditorView::new();
         editor.apply_theme(theme_engine.get_current());
+        editor.status_bar.username = config_data.profile.username.clone();
         
         let error_modal = ErrorModal::new();
         let (event_tx, network_rx) = mpsc::channel(100);
@@ -86,14 +90,17 @@ impl App {
         let network_manager = NetworkManager::new(event_tx, cmd_rx);
         
         let identity_seed_for_net = config_data.profile.identity_seed.clone();
+        let listen_addr_from_config = if config_data.network.listen_addr.is_empty() { None } else { Some(config_data.network.listen_addr.clone()) };
         tokio::spawn(async move {
-            if let Err(e) = network_manager.start(identity_seed_for_net).await {
+            if let Err(e) = network_manager.start(identity_seed_for_net, listen_addr_from_config).await {
                 log::error!("Failed to start network: {}", e);
             }
         });
 
         let identity_keys = QuantumAuth::generate_identity();
         
+        let auto_save_enabled = config_data.editor.auto_save;
+
         let mut app = Self {
             current_screen: AppScreen::Welcome,
             previous_screen: AppScreen::Welcome,
@@ -108,6 +115,7 @@ impl App {
             buffer_tx,
             peer_sync_states: HashMap::new(),
             lodge_members: HashMap::new(),
+            pending_join_requests: Vec::new(),
             identity_keys,
             last_shared_lodge: None,
             last_tick: Instant::now(),
@@ -115,6 +123,8 @@ impl App {
             active_lodge: None,
             theme,
             theme_engine,
+            auto_save_counter: 0,
+            auto_save_enabled,
         };
 
         if let Some(path) = initial_file {
@@ -144,6 +154,9 @@ impl App {
         });
 
         if let Ok(doc) = reply_rx.recv() {
+            if matches!(self.current_screen, AppScreen::Editor) {
+                self.editor.load_doc_to_active_pane(path, doc);
+            } else {
                 if let Some(idx) = self.editor.tabs.find_tab_by_path(&path) {
                     self.editor.tabs.active_tab = idx;
                 } else {
@@ -160,12 +173,13 @@ impl App {
                         self.editor.tabs.add_tab(path, doc);
                     }
                 }
-                
-                // Ensure the new tab gets the current theme
-                self.editor.apply_theme(self.theme_engine.get_current());
-                return Ok(());
+            }
+
+            // Ensure the new tab gets the current theme
+            self.editor.apply_theme(self.theme_engine.get_current());
+            return Ok(());
         }
-        Err(std::io::Error::new(std::io::ErrorKind::Other, "Actor communication failed"))
+        Err(std::io::Error::other("Actor communication failed"))
     }
 
     fn switch_screen(&mut self, screen: AppScreen) {
@@ -189,6 +203,22 @@ impl App {
     fn show_error(&mut self, error: TrexError) { self.error_modal.show(error); }
 
     fn poll_network(&mut self) {
+        if self.auto_save_enabled {
+            self.auto_save_counter += 1;
+            if self.auto_save_counter >= 600 {
+                self.auto_save_counter = 0;
+                for tab in self.editor.tabs.tabs.iter_mut() {
+                    for node in tab.layout.nodes.iter_mut() {
+                        if let crate::components::NodeKind::Pane(ref mut editor) = node.kind {
+                            if editor.is_modified() && editor.file_path().is_some() {
+                                let _ = editor.save();
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         if let Some(id) = self.welcome.take_delete_request() {
             let _ = self.db.delete_lodge(id);
             self.peer_sync_states.retain(|(lodge_id, _, _), _| *lodge_id != id);
@@ -207,6 +237,10 @@ impl App {
                     if !self.welcome.discovered_lodges.iter().any(|l| l.id == id) {
                         self.welcome.discovered_lodges.push(DiscoveredLodge { id, name, peer_id });
                     }
+                }
+                NetworkEvent::JoinRequest { lodge_id, peer_id, username, public_key } => {
+                    self.editor.workspace.add_pending_join(peer_id, username.clone(), public_key);
+                    self.show_info(&format!("Pending join request from {}", username));
                 }
                 NetworkEvent::LodgeMembersUpdated { lodge_id, members } => {
                     self.lodge_members.insert(lodge_id, members.clone());
@@ -231,11 +265,11 @@ impl App {
                     self.show_info("Disconnected from LodgeNet.");
                 }
                 NetworkEvent::AuthChallenge { lodge_id, challenge } => {
-                    let proof = QuantumAuth::sign_challenge(&self.identity_keys.1, &challenge);
+                    let proof = QuantumAuth::sign_challenge(&self.identity_keys, &challenge);
                     let _ = self.network_tx.try_send(NetworkCommand::SendAuthResponse { lodge_id, proof });
                 }
-                NetworkEvent::AuthVerify { lodge_id, challenge, proof } => {
-                    if QuantumAuth::verify(&self.identity_keys.0, &challenge, &proof) {
+                NetworkEvent::AuthVerify { lodge_id, challenge, proof, public_key } => {
+                    if QuantumAuth::verify(&public_key, &challenge, &proof) {
                         log::info!("PQ-Auth successful for Lodge {}", lodge_id);
                         self.show_info("New member authenticated via ML-DSA.");
                         let _ = self.network_tx.try_send(NetworkCommand::AnnouncePresence { lodge_id, username: self.config_data.profile.username.clone() });
@@ -270,7 +304,7 @@ impl App {
     fn share_workspace_with_name(&mut self, name: String) {
         let id = self.editor.workspace.id;
         self.active_lodge = Some(id);
-        self.editor.workspace.share();
+        self.editor.workspace.share(name.clone());
         let root_path = self.editor.workspace.root.display().to_string();
         let _ = self.db.register_lodge(id, &root_path, &name, true);
         let _ = self.network_tx.try_send(NetworkCommand::ShareLodge { id, name: name.clone() });
@@ -348,7 +382,11 @@ impl Component for App {
                     self.editor.status_bar.peer_count = 1; 
                     self.editor.status_bar.lodge_id = Some(lodge_id);
 
-                    let _ = self.network_tx.try_send(NetworkCommand::JoinLodge { lodge_id, public_key: self.identity_keys.0.clone() });
+                    let _ = self.network_tx.try_send(NetworkCommand::JoinLodge {
+                        lodge_id,
+                        public_key: self.identity_keys.public.to_vec(),
+                        username: self.config_data.profile.display_name.clone(),
+                    });
                     self.switch_screen(AppScreen::Editor);
                     return EventResult::Handled;
                 }
@@ -405,6 +443,12 @@ impl Component for App {
                         self.welcome.theme = self.theme.clone();
                         self.editor.apply_theme(self.theme_engine.get_current());
                     }
+
+                    // Sync editor config back to App
+                    self.editor.tab_size = new_config.editor.tab_size;
+                    self.editor.show_line_numbers = new_config.editor.line_numbers;
+                    self.editor.apply_editor_config();
+                    self.auto_save_enabled = new_config.editor.auto_save;
 
                     self.current_screen = self.previous_screen;
                     return EventResult::Handled;

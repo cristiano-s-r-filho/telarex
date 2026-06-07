@@ -108,7 +108,7 @@ impl FileTree {
     }
 
     pub fn input_modal_show(&mut self, title: &str, _id: &str) {
-        self.input_modal.title = title.to_string();
+        self.input_modal.modal.title = title.to_string();
         self.input_modal.show();
     }
 
@@ -137,7 +137,7 @@ impl FileTree {
 
 impl Component for FileTree {
     fn handle_event(&mut self, event: &Event, ctx: &mut AppContext) -> EventResult {
-        if self.input_modal.active {
+        if self.input_modal.modal.active {
             let res = self.input_modal.handle_event(event, ctx);
             if let Some(name) = self.input_modal.take_value() { let _ = self.create_folder(&name); }
             return res;
@@ -185,12 +185,12 @@ impl Component for FileTree {
         let border_style = if self.focused { Style::default().fg(self.theme.border_active) } else { Style::default().fg(self.theme.border_inactive) };
         let block = Block::default().borders(Borders::ALL).title(format!(" Explorer: {} ", self.root.display())).border_style(border_style).bg(self.theme.bg);
         let items: Vec<ListItem> = self.entries.iter().map(|e| {
-            let icon = if e.is_dir { "󰉋 " } else { "󰈚 " };
+            let icon = if e.is_dir { "▸ " } else { "  " };
             let style = if e.is_dir { Style::default().fg(self.theme.border_active).add_modifier(Modifier::BOLD) } else { Style::default().fg(self.theme.fg) };
             ListItem::new(format!("{}{}", icon, e.name)).style(style)
         }).collect();
-        let list = List::new(items).block(block).highlight_style(Style::default().bg(self.theme.selection_bg).add_modifier(Modifier::BOLD)).highlight_symbol("> ");
+        let list = List::new(items).block(block).highlight_style(Style::default().bg(self.theme.selection_bg).add_modifier(Modifier::BOLD)).highlight_symbol("▶ ");
         frame.render_stateful_widget(list, area, &mut self.state.borrow_mut());
-        if self.input_modal.active { self.input_modal.draw(frame, frame.area(), ctx); }
+        if self.input_modal.modal.active { self.input_modal.draw(frame, frame.area(), ctx); }
     }
 }

@@ -1,16 +1,19 @@
 use crossterm::event::{KeyCode, KeyEventKind};
 use ratatui::{
     layout::Rect,
-    style::{Modifier, Style, Color},
-    widgets::{Block, Borders, Clear, List, ListItem, ListState},
+    style::{Modifier, Style},
+    widgets::{List, ListItem, ListState},
     Frame,
 };
+use crate::theme::Theme;
 use crate::tui_compat::{AppContext, Component, DrawContext, Event, EventResult};
+use super::modal::Modal;
 
 pub struct MacroPalette {
-    pub active: bool,
+    pub modal: Modal,
     pub list_state: ListState,
     committed_action: Option<MacroAction>,
+    pub theme: Theme,
 }
 
 #[derive(Clone, Debug)]
@@ -24,9 +27,10 @@ impl MacroPalette {
         let mut list_state = ListState::default();
         list_state.select(Some(0));
         Self {
-            active: false,
+            modal: Modal::new(" Macros "),
             list_state,
             committed_action: None,
+            theme: Theme::default(),
         }
     }
 
@@ -37,13 +41,13 @@ impl MacroPalette {
 
 impl Component for MacroPalette {
     fn handle_event(&mut self, event: &Event, _ctx: &mut AppContext) -> EventResult {
-        if !self.active { return EventResult::Unhandled; }
+        if !self.modal.active { return EventResult::Unhandled; }
 
         if let Event::Key(key) = event {
             if key.kind != KeyEventKind::Press { return EventResult::Handled; }
 
             match key.code {
-                KeyCode::Esc => { self.active = false; return EventResult::Handled; }
+                KeyCode::Esc => { self.modal.active = false; return EventResult::Handled; }
                 KeyCode::Up => {
                     let i = self.list_state.selected().unwrap_or(0);
                     if i > 0 { self.list_state.select(Some(i - 1)); }
@@ -60,7 +64,7 @@ impl Component for MacroPalette {
                         Some(1) => self.committed_action = Some(MacroAction::Play("default".to_string())),
                         _ => {}
                     }
-                    self.active = false;
+                    self.modal.active = false;
                     return EventResult::Handled;
                 }
                 _ => {}
@@ -76,26 +80,23 @@ impl Component for MacroPalette {
 
 impl MacroPalette {
     pub fn render(&mut self, frame: &mut Frame, area: Rect) {
-        if !self.active { return; }
-
-        let palette_area = crate::utils::centered_rect_fixed(40, 6, area);
-        frame.render_widget(Clear, palette_area);
-
-        let block = Block::default()
-            .borders(Borders::ALL)
-            .title(" Macros ")
-            .border_style(Style::default().fg(Color::Cyan));
-        
-        let inner = block.inner(palette_area);
-        frame.render_widget(block, palette_area);
+        let inner = match self.modal.render(frame, area, &self.theme, 40, 6) {
+            Some(r) => r,
+            None => return,
+        };
 
         let items = vec![
-            ListItem::new(" [R] Record New Macro "),
-            ListItem::new(" [P] Play Last Macro "),
+            ListItem::new(" [R] Record New Macro ").style(Style::default().fg(self.theme.fg)),
+            ListItem::new(" [P] Play Last Macro ").style(Style::default().fg(self.theme.fg)),
         ];
 
         let list = List::new(items)
-            .highlight_style(Style::default().bg(Color::DarkGray).fg(Color::White).add_modifier(Modifier::BOLD))
+            .highlight_style(
+                Style::default()
+                    .bg(self.theme.selection_bg)
+                    .fg(self.theme.selection_fg)
+                    .add_modifier(Modifier::BOLD)
+            )
             .highlight_symbol("> ");
 
         frame.render_stateful_widget(list, inner, &mut self.list_state);

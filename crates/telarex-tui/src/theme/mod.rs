@@ -17,6 +17,13 @@ pub struct Theme {
     pub status_bar_bg: Color,
     pub status_bar_fg: Color,
     
+    // Semantic Colors
+    pub accent: Color,
+    pub success: Color,
+    pub warning: Color,
+    pub error: Color,
+    pub info: Color,
+    
     // Semantic Styles
     pub header: Style,
     pub subtitle: Style,
@@ -58,14 +65,21 @@ impl Theme {
             status_bar_bg: parse_hex(&ss.resolve_color(&ss.ui.status_bar_bg)),
             status_bar_fg: fg,
             
+            // Semantic Colors
+            accent,
+            success: ss.ui.success.as_ref().map(|s| parse_hex(&ss.resolve_color(s))).unwrap_or(Color::Green),
+            warning: parse_hex(&ss.resolve_color(&ss.ui.warning)),
+            error: parse_hex(&ss.resolve_color(&ss.ui.error)),
+            info: parse_hex(&ss.resolve_color(&ss.ui.info)),
+            
             header: Style::default().fg(accent).add_modifier(Modifier::BOLD),
-            subtitle: Style::default().fg(Color::DarkGray).add_modifier(Modifier::ITALIC),
+            subtitle: Style::default().fg(ss.ui.fg_dim.as_ref().map(|s| parse_hex(&ss.resolve_color(s))).unwrap_or(Color::DarkGray)).add_modifier(Modifier::ITALIC),
             mission: Style::default().fg(Color::Cyan),
             list_selected: Style::default().bg(selection_bg).fg(bg).add_modifier(Modifier::BOLD),
-            list_inactive: Style::default().fg(Color::DarkGray),
-            status_label: Style::default().fg(Color::DarkGray),
+            list_inactive: Style::default().fg(ss.ui.fg_muted.as_ref().map(|s| parse_hex(&ss.resolve_color(s))).unwrap_or(Color::DarkGray)),
+            status_label: Style::default().fg(ss.ui.fg_muted.as_ref().map(|s| parse_hex(&ss.resolve_color(s))).unwrap_or(Color::DarkGray)),
             status_value: Style::default().fg(fg),
-            footer_hint: Style::default().fg(Color::DarkGray),
+            footer_hint: Style::default().fg(ss.ui.fg_dim.as_ref().map(|s| parse_hex(&ss.resolve_color(s))).unwrap_or(Color::DarkGray)),
             
             syntax,
         }

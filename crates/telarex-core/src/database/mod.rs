@@ -1,5 +1,4 @@
 use rusqlite::{params, Connection};
-use std::path::PathBuf;
 use uuid::Uuid;
 use anyhow::Result;
 use crate::errors::TrexError;
@@ -10,10 +9,12 @@ pub struct Database {
 
 impl Database {
     pub fn open() -> Result<Self> {
-        let mut path = dirs::data_dir().unwrap_or_else(|| PathBuf::from("."));
-        path.push("telarex");
-        std::fs::create_dir_all(&path)?;
-        path.push("telarex.db");
+        let data_dir = directories::ProjectDirs::from("", "", "telarex")
+            .ok_or_else(|| anyhow::anyhow!("could not determine data directory"))?
+            .data_dir()
+            .to_path_buf();
+        std::fs::create_dir_all(&data_dir)?;
+        let path = data_dir.join("telarex.db");
         
         let conn = Connection::open(path)?;
         let db = Self { conn };
@@ -256,7 +257,7 @@ mod tests {
     #[test]
     fn test_log_error() {
         let db = test_db();
-        let err = TrexError::network_failure();
+        let err = TrexError::network_failure("test");
         db.log_error(&err).unwrap();
 
         let count: i64 = db

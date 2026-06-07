@@ -12,7 +12,6 @@ default = []
 lsp = []
 clipboard = ["arboard"]
 git = ["git2"]
-proptest = ["proptest"]
 
 [dependencies]
 serde = { workspace = true }
@@ -28,7 +27,13 @@ tree-sitter-highlight = { workspace = true }
 tree-sitter-rust = { workspace = true }
 tree-sitter-json = { workspace = true }
 tree-sitter-md = { workspace = true }
-tree-sitter-toml = { workspace = true }
+tree-sitter-toml-ng = { workspace = true }
+tree-sitter-python = { workspace = true }
+tree-sitter-javascript = { workspace = true }
+tree-sitter-typescript = { workspace = true }
+tree-sitter-css = { workspace = true }
+tree-sitter-html = { workspace = true }
+tree-sitter-yaml = { workspace = true }
 walkdir = { workspace = true }
 automerge = { workspace = true }
 tokio = { workspace = true }
@@ -37,7 +42,7 @@ hex = { workspace = true }
 rand = { workspace = true }
 sha2 = { workspace = true }
 rusqlite = { workspace = true }
-ratatui = { workspace = true, optional = true }
+ratatui = { workspace = true }
 libp2p = { workspace = true, features = ["gossipsub", "mdns", "noise", "tcp", "yamux", "tokio", "macros", "request-response", "identify", "kad", "ping"] }
 futures = { workspace = true }
 pqc_dilithium = { workspace = true }

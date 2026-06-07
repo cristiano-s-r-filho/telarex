@@ -11,6 +11,7 @@ use ratatui::{
 use crate::tui_compat::{AppContext, Component, DrawContext, Event, EventResult};
 
 use std::cell::RefCell;
+use std::sync::{Arc, Mutex};
 use tokio::sync::mpsc;
 
 use telarex_core::lsp::LspClient;
@@ -45,6 +46,8 @@ pub struct EditorView {
     pub mode: String,
     git_sidecar: Option<telarex_core::git_sidecar::GitSidecar>,
     pending_git_commit: Option<String>,
+    pub tab_size: usize,
+    pub show_line_numbers: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -86,7 +89,10 @@ impl EditorView {
             mode: "normal".to_string(),
             git_sidecar,
             pending_git_commit: None,
+            tab_size: config.editor.tab_size,
+            show_line_numbers: config.editor.line_numbers,
         };
+        view.apply_editor_config();
         view.sync_git_status();
         view.update_focus_state();
         view
@@ -107,6 +113,17 @@ impl EditorView {
         self.sync_status_bar();
     }
 
+    pub fn apply_editor_config(&mut self) {
+        for tab in self.tabs.tabs.iter_mut() {
+            for node in tab.layout.nodes.iter_mut() {
+                if let NodeKind::Pane(ref mut editor) = node.kind {
+                    editor.tab_size = self.tab_size;
+                    editor.show_line_numbers = self.show_line_numbers;
+                }
+            }
+        }
+    }
+
     pub fn load_file(&mut self, path: impl AsRef<std::path::Path>) -> std::io::Result<()> {
         let path_ref = path.as_ref();
         let path_buf = if path_ref.exists() {
@@ -118,6 +135,20 @@ impl EditorView {
         if path_buf.is_dir() { let _ = self.file_tree.change_dir(&path_buf); return Ok(()); }
         self.file_to_open = Some(path_buf);
         Ok(())
+    }
+
+    /// Load a document into the currently active pane (not a new tab).
+    pub fn load_doc_to_active_pane(&mut self, path: std::path::PathBuf, doc: Arc<Mutex<telarex_core::buffer::ManagedBuffer>>) {
+        let active_id = self.tabs.active_tab_ref().layout.active_pane;
+        for node in self.tabs.active_tab_mut().layout.nodes.iter_mut() {
+            if node.id == active_id {
+                if let NodeKind::Pane(ref mut editor) = node.kind {
+                    editor.load_document(path, doc);
+                    break;
+                }
+            }
+        }
+        self.sync_status_bar();
     }
 
     pub fn take_file_to_open(&mut self) -> Option<std::path::PathBuf> {
@@ -155,7 +186,7 @@ impl EditorView {
     }
 
     pub fn is_palette_active(&self) -> bool {
-        self.command_palette.borrow().active || self.search_palette.borrow().active || self.macro_palette.borrow().active || self.share_lodge_modal.active
+        self.command_palette.borrow().active || self.search_palette.borrow().active || self.macro_palette.borrow().modal.active || self.share_lodge_modal.modal.active
     }
 
     pub fn start_lsp(&mut self, root: &std::path::Path) {
@@ -207,8 +238,10 @@ impl EditorView {
         self.status_bar.language = Some(lang);
         self.status_bar.selection_count = selections;
         self.status_bar.lodge_id = Some(self.workspace.id);
+        self.status_bar.tab_index = self.tabs.active_tab;
+        self.status_bar.tab_count = self.tabs.tabs.len();
         
-        self.status_bar.editor_mode = "EDIT".to_string();
+        self.status_bar.editor_mode = self.mode.to_uppercase().to_string();
     }
 
     fn update_focus_state(&mut self) {
@@ -280,7 +313,7 @@ impl EditorView {
             }
             Command::GitCommit => {
                 if self.git_sidecar.is_some() {
-                    self.share_lodge_modal.title = "Commit message".to_string();
+                    self.share_lodge_modal.modal.title = "Commit message".to_string();
                     self.share_lodge_modal.show();
                 }
             }
@@ -304,11 +337,10 @@ impl EditorView {
                     }
                 }
             }
+            Command::SaveAs => { /* not yet implemented */ }
         }
         self.sync_status_bar();
-        self.sync_command_palette_on_close();
-    }
-        self.sync_status_bar();
+        self.command_palette.borrow_mut().active = false;
     }
 
     fn handle_action(&mut self, action: UIAction, ctx: &mut AppContext) -> EventResult {
@@ -325,7 +357,7 @@ impl EditorView {
             }
             UIAction::EnterCommandMode => { self.command_palette.borrow_mut().show(); EventResult::Handled }
             UIAction::EnterSearchMode => { self.search_palette.borrow_mut().show(); EventResult::Handled }
-            UIAction::ToggleMacroPalette => { self.macro_palette.borrow_mut().active = !self.macro_palette.borrow().active; EventResult::Handled }
+            UIAction::ToggleMacroPalette => { self.macro_palette.borrow_mut().modal.active = !self.macro_palette.borrow().modal.active; EventResult::Handled }
             UIAction::StartRecordingMacro(name) => { self.macro_state = MacroState::Recording(name); self.recorded_events.clear(); EventResult::Handled }
             UIAction::StopRecordingMacro => {
                 if let MacroState::Recording(name) = &self.macro_state {
@@ -348,11 +380,13 @@ impl EditorView {
             UIAction::PrevTab => { self.tabs.prev_tab(); self.update_focus_state(); EventResult::Handled }
             UIAction::NewTab => { self.tabs.new_tab(); self.update_focus_state(); EventResult::Handled }
             UIAction::EnterWindowMode => {
+                log::info!("[MODE] EnterWindowMode");
                 self.mode = "window".to_string();
                 self.sync_status_bar();
                 EventResult::Handled
             }
             UIAction::ExitMode => {
+                log::info!("[MODE] ExitMode");
                 self.mode = "normal".to_string();
                 self.sync_status_bar();
                 EventResult::Handled
@@ -401,14 +435,18 @@ impl EditorView {
                 EventResult::Handled
             }
             UIAction::SplitVertical => {
+                log::info!("[SPLIT] Vertical split");
                 let active_id = self.tabs.active_tab_ref().layout.active_pane;
                 self.tabs.active_tab_mut().layout.split_pane(active_id, ratatui::layout::Direction::Horizontal);
+                self.apply_editor_config();
                 self.sync_status_bar();
                 EventResult::Handled
             }
             UIAction::SplitHorizontal => {
+                log::info!("[SPLIT] Horizontal split");
                 let active_id = self.tabs.active_tab_ref().layout.active_pane;
                 self.tabs.active_tab_mut().layout.split_pane(active_id, ratatui::layout::Direction::Vertical);
+                self.apply_editor_config();
                 self.sync_status_bar();
                 EventResult::Handled
             }
@@ -418,11 +456,15 @@ impl EditorView {
                 self.sync_status_bar();
                 EventResult::Handled
             }
+            UIAction::CloseTab => { self.tabs.remove_active_tab(); self.update_focus_state(); EventResult::Handled }
+            UIAction::ExecuteSearch => { /* not yet implemented */ EventResult::Handled }
+            UIAction::SelectSearchResult => { /* not yet implemented */ EventResult::Handled }
+            UIAction::TriggerAutocomplete => { /* not yet implemented */ EventResult::Handled }
             UIAction::FocusLeft => { self.tabs.active_tab_mut().layout.navigate(crate::components::layout::NavDir::Left); self.sync_status_bar(); EventResult::Handled }
             UIAction::FocusRight => { self.tabs.active_tab_mut().layout.navigate(crate::components::layout::NavDir::Right); self.sync_status_bar(); EventResult::Handled }
             UIAction::FocusUp => { self.tabs.active_tab_mut().layout.navigate(crate::components::layout::NavDir::Up); self.sync_status_bar(); EventResult::Handled }
             UIAction::FocusDown => { self.tabs.active_tab_mut().layout.navigate(crate::components::layout::NavDir::Down); self.sync_status_bar(); EventResult::Handled }
-            _ => EventResult::Unhandled,
+            UIAction::Core(cmd) => { self.execute_command(cmd, ctx); EventResult::Handled }
         }
     }
 
@@ -471,7 +513,7 @@ impl Component for EditorView {
         self.command_palette.borrow_mut().render(frame, area);
         self.search_palette.borrow_mut().render(frame, area);
         self.macro_palette.borrow_mut().render(frame, area);
-        if self.share_lodge_modal.active { self.share_lodge_modal.draw(frame, area, ctx); }
+        if self.share_lodge_modal.modal.active { self.share_lodge_modal.draw(frame, area, ctx); }
     }
 
     fn handle_event(&mut self, event: &Event, ctx: &mut AppContext) -> EventResult {
@@ -485,9 +527,9 @@ impl Component for EditorView {
             }
         }
 
-        if self.share_lodge_modal.active {
+        if self.share_lodge_modal.modal.active {
             let result = self.share_lodge_modal.handle_event(event, ctx);
-            if !self.share_lodge_modal.active && self.share_lodge_modal.title == "Commit message" && !self.share_lodge_modal.value.is_empty() {
+            if !self.share_lodge_modal.modal.active && self.share_lodge_modal.modal.title == "Commit message" && !self.share_lodge_modal.value.is_empty() {
                 self.pending_git_commit = Some(self.share_lodge_modal.value.clone());
                 self.share_lodge_modal.value.clear();
             }
@@ -530,8 +572,8 @@ impl Component for EditorView {
             if res.is_handled() { self.sync_status_bar(); return res; }
         }
 
-        let macro_palette_action = if self.macro_palette.borrow().active {
-            let res = self.macro_palette.borrow_mut().handle_event(event, ctx);
+        let macro_palette_action: Option<(EventResult, Option<crate::components::modals::macro_palette::MacroAction>)> = if self.macro_palette.borrow().modal.active {
+            let res: EventResult = self.macro_palette.borrow_mut().handle_event(event, ctx);
             let action = self.macro_palette.borrow_mut().take_action();
             if res.is_handled() || action.is_some() { Some((res, action)) } else { None }
         } else { None };
@@ -594,6 +636,13 @@ impl Component for EditorView {
             }
             FocusTarget::Editor => {
                 if let Event::Key(key_event) = event {
+                    // ESC always resets mode and propagates to exit view
+                    if key_event.code == KeyCode::Esc && !key_event.modifiers.contains(KeyModifiers::CONTROL) && !key_event.modifiers.contains(KeyModifiers::ALT) {
+                        self.mode = "normal".to_string();
+                        self.sync_status_bar();
+                        return EventResult::Unhandled;
+                    }
+
                     let action = self.key_mapper.resolve(*key_event, &self.mode, Some("editor"));
                     if let Some(a) = action {
                         return self.handle_action(a, ctx);

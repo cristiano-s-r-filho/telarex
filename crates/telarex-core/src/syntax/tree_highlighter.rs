@@ -42,6 +42,105 @@ impl TreeHighlighter {
             configs.insert("json".to_string(), config);
         }
 
+        if let Ok(mut config) = HighlightConfiguration::new(
+            tree_sitter_md::LANGUAGE.into(),
+            "markdown",
+            tree_sitter_md::HIGHLIGHT_QUERY_BLOCK,
+            "",
+            ""
+        ) {
+            config.configure(&highlights);
+            configs.insert("markdown".to_string(), config);
+        }
+
+        if let Ok(mut config) = HighlightConfiguration::new(
+            tree_sitter_toml_ng::LANGUAGE.into(),
+            "toml",
+            tree_sitter_toml_ng::HIGHLIGHTS_QUERY,
+            "",
+            ""
+        ) {
+            config.configure(&highlights);
+            configs.insert("toml".to_string(), config);
+        }
+
+        if let Ok(mut config) = HighlightConfiguration::new(
+            tree_sitter_python::LANGUAGE.into(),
+            "python",
+            tree_sitter_python::HIGHLIGHTS_QUERY,
+            "",
+            ""
+        ) {
+            config.configure(&highlights);
+            configs.insert("python".to_string(), config);
+        }
+
+        if let Ok(mut config) = HighlightConfiguration::new(
+            tree_sitter_javascript::LANGUAGE.into(),
+            "javascript",
+            tree_sitter_javascript::HIGHLIGHT_QUERY,
+            "",
+            ""
+        ) {
+            config.configure(&highlights);
+            configs.insert("javascript".to_string(), config);
+        }
+
+        if let Ok(mut config) = HighlightConfiguration::new(
+            tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into(),
+            "typescript",
+            tree_sitter_typescript::HIGHLIGHTS_QUERY,
+            "",
+            ""
+        ) {
+            config.configure(&highlights);
+            configs.insert("typescript".to_string(), config);
+        }
+
+        if let Ok(mut config) = HighlightConfiguration::new(
+            tree_sitter_typescript::LANGUAGE_TSX.into(),
+            "tsx",
+            tree_sitter_typescript::HIGHLIGHTS_QUERY,
+            "",
+            ""
+        ) {
+            config.configure(&highlights);
+            configs.insert("tsx".to_string(), config);
+        }
+
+        if let Ok(mut config) = HighlightConfiguration::new(
+            tree_sitter_css::LANGUAGE.into(),
+            "css",
+            tree_sitter_css::HIGHLIGHTS_QUERY,
+            "",
+            ""
+        ) {
+            config.configure(&highlights);
+            configs.insert("css".to_string(), config);
+        }
+
+        if let Ok(mut config) = HighlightConfiguration::new(
+            tree_sitter_html::LANGUAGE.into(),
+            "html",
+            tree_sitter_html::HIGHLIGHTS_QUERY,
+            "",
+            ""
+        ) {
+            config.configure(&highlights);
+            configs.insert("html".to_string(), config);
+        }
+
+        if let Ok(mut config) = HighlightConfiguration::new(
+            tree_sitter_yaml::LANGUAGE.into(),
+            "yaml",
+            tree_sitter_yaml::HIGHLIGHTS_QUERY,
+            "",
+            ""
+        ) {
+            config.configure(&highlights);
+            configs.insert("yaml".to_string(), config);
+        }
+
         Self {
             highlighter: TSHighlighter::new(),
             configs,
@@ -69,11 +168,19 @@ impl TreeHighlighter {
         // O(visible) extraction
         let source = rope.slice(start_char..end_char).to_string();
         
-        let highlights_res = self.highlighter.highlight(config, source.as_bytes(), None, |_| None);
-        
-        let highlights = match highlights_res {
-            Ok(h) => h,
-            Err(_) => return self.plain_text_lines(rope, start_line, end_line),
+        let plain_fallback = || -> Vec<Line<'static>> {
+            let mut lines = Vec::new();
+            for i in start_line..end_line.min(rope.len_lines()) {
+                let s = rope.line(i).to_string();
+                lines.push(Line::raw(s.trim_matches(|c| c == '\r' || c == '\n').to_string()));
+            }
+            lines
+        };
+
+        let highlight_iter = self.highlighter.highlight(config, source.as_bytes(), None, |_| None);
+        let highlight_events: Vec<HighlightEvent> = match highlight_iter {
+            Ok(h) => h.filter_map(|r| r.ok()).collect(),
+            Err(_) => return plain_fallback(),
         };
 
         let mut lines = Vec::new();
@@ -83,11 +190,7 @@ impl TreeHighlighter {
         let active_style = StyleToken { color: initial_fg, bold: false, italic: false };
         let mut style_stack = vec![active_style];
 
-        for event in highlights {
-            let event = match event {
-                Ok(e) => e,
-                Err(_) => break,
-            };
+        for event in highlight_events {
 
             match event {
                 HighlightEvent::Source { start, end } => {

@@ -103,7 +103,7 @@ mod tests {
     use super::*;
 
     fn peer_from(engine: &SyncEngine, path: &PathBuf, idx: usize) -> ManagedDocument {
-        let docs = engine.documents.lock().unwrap();
+        let mut docs = engine.documents.lock().unwrap();
         let bytes = docs[idx].doc.save();
         let doc = AutoCommit::load(&bytes).unwrap();
         let (_, text_obj) = doc.get(automerge::ROOT, "content").unwrap().unwrap();
@@ -122,15 +122,15 @@ mod tests {
 
     fn sync_all(engines: &[&SyncEngine], path: &PathBuf) {
         let n = engines.len();
-        let mut states: Vec<automerge::sync::State> = (0..n).map(|_| automerge::sync::State::new()).collect();
+        let mut states: Vec<Vec<automerge::sync::State>> = (0..n).map(|_| (0..n).map(|_| automerge::sync::State::new()).collect()).collect();
 
         for _round in 0..10 {
             let mut any = false;
             for i in 0..n {
                 for j in 0..n {
                     if i == j { continue; }
-                    if let Some(msg) = engines[i].generate_sync_message(path, &mut states[i]) {
-                        engines[j].receive_sync_message(path, &mut states[j], msg);
+                    if let Some(msg) = engines[i].generate_sync_message(path, &mut states[i][j]) {
+                        engines[j].receive_sync_message(path, &mut states[j][i], msg);
                         any = true;
                     }
                 }

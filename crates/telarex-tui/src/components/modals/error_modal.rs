@@ -5,14 +5,17 @@ use ratatui::{
     text::{Line, Span},
     widgets::{Block, Borders, Clear, Paragraph},
     Frame,
+    prelude::Stylize,
 };
 use crate::tui_compat::{AppContext, Component, DrawContext, Event, EventResult};
 use telarex_core::errors::{TrexError, ErrorLevel};
 use crate::utils::sanitize;
+use crate::theme::Theme;
 
 pub struct ErrorModal {
     pub active: bool,
     pub current_error: Option<TrexError>,
+    pub theme: Theme,
 }
 
 impl ErrorModal {
@@ -20,6 +23,7 @@ impl ErrorModal {
         Self {
             active: false,
             current_error: None,
+            theme: Theme::default(),
         }
     }
 
@@ -56,23 +60,24 @@ impl Component for ErrorModal {
         if !self.active { return; }
         let Some(error) = &self.current_error else { return; };
 
-        let area = crate::utils::centered_rect_fixed(60, 8, area);
-        
-        let color = match error.level {
-            ErrorLevel::Info => Color::Cyan,
-            ErrorLevel::Warning => Color::Yellow,
-            ErrorLevel::Error => Color::Red,
-            ErrorLevel::Fatal => Color::LightRed,
+        let modal_area = crate::utils::centered_rect_fixed(60, 8, area);
+        frame.render_widget(Clear, modal_area);
+
+        let border_color = match error.level {
+            ErrorLevel::Info => self.theme.info,
+            ErrorLevel::Warning => self.theme.warning,
+            ErrorLevel::Error => self.theme.error,
+            ErrorLevel::Fatal => self.theme.error,
         };
 
         let block = Block::default()
             .borders(Borders::ALL)
-            .border_style(Style::default().fg(color))
+            .border_style(Style::default().fg(border_color))
+            .bg(self.theme.bg)
             .title(format!(" Error: {} ", sanitize(&error.code)));
 
-        let inner = block.inner(area);
-        frame.render_widget(Clear, area);
-        frame.render_widget(block, area);
+        let inner = block.inner(modal_area);
+        frame.render_widget(block, modal_area);
 
         let layout = Layout::vertical([
             Constraint::Length(1),
@@ -80,15 +85,14 @@ impl Component for ErrorModal {
             Constraint::Min(0),
         ]).split(inner);
 
-        frame.render_widget(Paragraph::new(sanitize(&error.message)).style(Style::default().add_modifier(Modifier::BOLD)), layout[0]);
-        
+        frame.render_widget(Paragraph::new(sanitize(&error.message)).style(Style::default().fg(self.theme.fg).add_modifier(Modifier::BOLD)), layout[0]);
+
         let solution = Line::from(vec![
-            Span::styled(" [Solution] ", Style::default().fg(color)),
-            Span::raw(sanitize(&error.solution)),
+            Span::styled(" [Solution] ", Style::default().fg(border_color)),
+            Span::styled(sanitize(&error.solution), Style::default().fg(self.theme.fg)),
         ]);
         frame.render_widget(Paragraph::new(solution), layout[1]);
-        
-        let footer = " Press Enter/Esc to dismiss ";
-        frame.render_widget(Paragraph::new(footer).style(Style::default().fg(Color::DarkGray)), layout[2]);
+
+        frame.render_widget(Paragraph::new(" Press Enter/Esc to dismiss ").style(Style::default().fg(Color::DarkGray)), layout[2]);
     }
 }

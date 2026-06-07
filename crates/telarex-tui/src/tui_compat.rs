@@ -1,4 +1,3 @@
-use crossterm::event::Event;
 pub use crossterm::event::Event;
 use ratatui::layout::Rect;
 use ratatui::Frame;

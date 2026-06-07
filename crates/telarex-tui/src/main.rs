@@ -17,7 +17,7 @@ use crossterm::terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScree
 use crossterm::execute;
 use ratatui::backend::CrosstermBackend;
 use ratatui::Terminal;
-use tui_compat::{AppContext, DrawContext};
+use tui_compat::{AppContext, Component, DrawContext};
 
 struct TerminalGuard;
 
@@ -61,11 +61,18 @@ async fn main() -> anyhow::Result<()> {
 
     log::info!("--- TelaRex Session Started ---");
 
-    // Enable Keyboard Enhancement for Windows
+    let args = Args::parse();
+    let mut app = App::new(args.file, args.session);
+    let draw_ctx = DrawContext;
+
+    enable_raw_mode()?;
+    let mut stdout = io::stdout();
+    execute!(stdout, EnterAlternateScreen)?;
+
+    // Enable Keyboard Enhancement for Windows — must come AFTER raw mode and alternate screen
     #[cfg(windows)]
     {
         use crossterm::event::{PushKeyboardEnhancementFlags, KeyboardEnhancementFlags};
-        let mut stdout = io::stdout();
         let _ = crossterm::execute!(
             stdout,
             PushKeyboardEnhancementFlags(
@@ -76,13 +83,6 @@ async fn main() -> anyhow::Result<()> {
         );
     }
 
-    let args = Args::parse();
-    let mut app = App::new(args.file, args.session);
-    let draw_ctx = DrawContext;
-
-    enable_raw_mode()?;
-    let mut stdout = io::stdout();
-    execute!(stdout, EnterAlternateScreen)?;
     let backend = CrosstermBackend::new(&mut stdout);
     let mut terminal = Terminal::new(backend)?;
 

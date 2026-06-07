@@ -1,7 +1,7 @@
 use telarex_core::buffer::{ManagedBuffer, BufferCommand};
-use telarex_core::actor::{BufferActor, BufferActorCommand};
+use telarex_core::actor::BufferActorCommand;
 use tree_sitter::Parser;
-use tokio::sync::oneshot;
+use std::sync::{Arc, Mutex};
 
 #[test]
 fn test_managed_buffer_incremental_edit() {
@@ -41,32 +41,28 @@ fn test_managed_buffer_full_reset() {
     assert!(buffer.tree.is_some());
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_buffer_actor_lifecycle() {
-    let buffer_tx = BufferActor::start();
+    let buffer_tx = telarex_core::actor::BufferActor::start();
     let path = std::path::PathBuf::from("test.rs");
     
-    let (reply_tx, reply_rx) = oneshot::channel();
+    let (reply_tx, reply_rx) = std::sync::mpsc::channel();
     let _ = buffer_tx.send(BufferActorCommand::GetOrCreate { 
         path: path.clone(), 
         reply: reply_tx 
     }).await;
     
-    let doc_tx = reply_rx.await.unwrap();
+    let doc_arc: Arc<Mutex<ManagedBuffer>> = reply_rx.recv().unwrap();
     
     // Send an edit
-    let _ = doc_tx.send(BufferCommand::SetText("fn test() {}".to_string())).await;
+    {
+        let mut b = doc_arc.lock().unwrap();
+        let mut parser = Parser::new();
+        let _ = parser.set_language(&tree_sitter_rust::LANGUAGE.into());
+        b.handle_command(BufferCommand::SetText("fn test() {}".to_string()), &mut parser);
+    }
     
-    // Give some time for the actor to process (in a real test we'd use a feedback channel)
-    tokio::time::sleep(std::time::Duration::from_millis(50)).await;
-    
-    // Get snapshot
-    let (snap_tx, snap_rx) = oneshot::channel();
-    let _ = buffer_tx.send(BufferActorCommand::GetSnapshot { 
-        path: path.clone(), 
-        reply: snap_tx 
-    }).await;
-    
-    let rope = snap_rx.await.unwrap().unwrap();
-    assert_eq!(rope.to_string(), "fn test() {}");
+    // Verify via direct buffer access
+    let b = doc_arc.lock().unwrap();
+    assert_eq!(b.rope.to_string(), "fn test() {}");
 }

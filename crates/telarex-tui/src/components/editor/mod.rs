@@ -34,6 +34,8 @@ pub struct Editor {
     stylesheet: StyleSheet,
     language: Option<String>,
     pub gutter_width: usize,
+    pub tab_size: usize,
+    pub show_line_numbers: bool,
     pub theme: Theme,
     pub selection: Option<std::ops::Range<usize>>,
     pub last_change: Option<TextChange>,
@@ -69,6 +71,8 @@ impl Editor {
             stylesheet,
             language: None,
             gutter_width: 4,
+            tab_size: 4,
+            show_line_numbers: true,
             theme,
             selection: None,
             last_change: None,
@@ -95,8 +99,14 @@ impl Editor {
             self.language = match ext {
                 "rs" => Some("rust".to_string()),
                 "json" => Some("json".to_string()),
-                "md" => Some("markdown".to_string()),
+                "md" | "markdown" => Some("markdown".to_string()),
                 "toml" => Some("toml".to_string()),
+                "py" => Some("python".to_string()),
+                "js" | "jsx" => Some("javascript".to_string()),
+                "ts" | "tsx" => Some("typescript".to_string()),
+                "css" => Some("css".to_string()),
+                "html" | "htm" => Some("html".to_string()),
+                "yaml" | "yml" => Some("yaml".to_string()),
                 _ => None,
             };
         } else {
@@ -427,9 +437,10 @@ impl Editor {
             }
             KeyCode::Tab => {
                 let pos = self.cursor_offset;
+                let tab = " ".repeat(self.tab_size);
                 if let Some(doc_arc) = &self.document {
-                    doc_arc.lock().unwrap().apply_edit(pos, 0, "    ");
-                    self.cursor_offset += 4;
+                    doc_arc.lock().unwrap().apply_edit(pos, 0, &tab);
+                    self.cursor_offset += self.tab_size;
                     self.ensure_cursor_visible();
                 }
                 return (EventResult::Handled, Some(TextChange { pos, del: 0, text: "    ".to_string() }));
@@ -504,13 +515,23 @@ impl Component for Editor {
         let inner_area = block.inner(main_layout[1]);
         frame.render_widget(block, main_layout[1]);
 
-        let [gutter_area, content_area] = Layout::horizontal([
-            Constraint::Length(self.gutter_width as u16),
-            Constraint::Min(0),
-        ]).areas(inner_area);
+        let (gutter_area, content_area) = if self.show_line_numbers {
+            let [g, c] = Layout::horizontal([
+                Constraint::Length(self.gutter_width as u16),
+                Constraint::Min(0),
+            ]).areas(inner_area);
+            (Some(g), c)
+        } else {
+            (None, inner_area)
+        };
 
         let doc_arc = self.document.clone();
-        if doc_arc.is_none() { return; }
+        if doc_arc.is_none() {
+            if *self.focused.borrow() {
+                frame.set_cursor_position(Position::new(content_area.x, content_area.y));
+            }
+            return;
+        }
         let doc_binding = doc_arc.unwrap();
         let doc = doc_binding.lock().unwrap();
         
@@ -519,28 +540,28 @@ impl Component for Editor {
         let visible_lines = content_area.height as usize;
         let end_line = (start_line + visible_lines).min(line_count);
 
-        let mut gutter_spans = Vec::new();
-        let cursor_line_idx = doc.rope.char_to_line(self.cursor_offset.min(doc.rope.len_chars()));
-        for i in start_line..end_line {
-            let style = if i == cursor_line_idx && *self.focused.borrow() { Style::default().fg(self.theme.fg).add_modifier(Modifier::BOLD) } else { Style::default().fg(self.theme.gutter_fg) };
-            gutter_spans.push(Line::from(Span::styled(format!("{:>width$} ", i + 1, width = self.gutter_width - 1), style)));
+        if let Some(gutter_area) = gutter_area {
+            let mut gutter_spans = Vec::new();
+            let cursor_line_idx = doc.rope.char_to_line(self.cursor_offset.min(doc.rope.len_chars()));
+            for i in start_line..end_line {
+                let style = if i == cursor_line_idx && *self.focused.borrow() { Style::default().fg(self.theme.fg).add_modifier(Modifier::BOLD) } else { Style::default().fg(self.theme.gutter_fg) };
+                gutter_spans.push(Line::from(Span::styled(format!("{:>width$} ", i + 1, width = self.gutter_width - 1), style)));
+            }
+            frame.render_widget(Paragraph::new(gutter_spans).bg(self.theme.gutter_bg), gutter_area);
         }
-        frame.render_widget(Paragraph::new(gutter_spans).bg(self.theme.gutter_bg), gutter_area);
 
-        // LIVE ZERO-COPY HIGHLIGHTING
         let mut highlighter = self.highlighter.borrow_mut();
         let lang = self.language().unwrap_or("plain");
         let highlighted_lines = if let Some(ref tree) = doc.tree {
+            let _ = tree;
             highlighter.highlight_visible_range(
                 &doc.rope,
-                tree,
                 lang,
                 &self.stylesheet,
                 start_line,
                 end_line,
             )
         } else {
-            // Fallback if tree is not yet parsed
             doc.rope.lines()
                 .skip(start_line)
                 .take(end_line - start_line)
@@ -571,12 +592,10 @@ impl Component for Editor {
                 }
             }
 
-            // Handle end-of-line cursor
             if line_idx == cursor_line && *self.focused.borrow() && cursor_visual_col >= current_visual_col_in_line {
                 processed_spans.push(Span::styled(" ", Style::default().bg(self.theme.cursor_bg)));
             }
 
-            // Apply horizontal scroll
             let mut scrolled_spans = Vec::new();
             let mut current_v_col = 0;
             for span in processed_spans {
@@ -593,6 +612,12 @@ impl Component for Editor {
         }
         
         frame.render_widget(Paragraph::new(lines).bg(self.theme.bg), content_area);
+
+        if *self.focused.borrow() {
+            let cursor_area_y = content_area.y + (cursor_line.saturating_sub(start_line)) as u16;
+            let cursor_area_x = content_area.x + cursor_visual_col.saturating_sub(self.scroll_col) as u16;
+            frame.set_cursor_position(Position::new(cursor_area_x, cursor_area_y));
+        }
     }
 }
 

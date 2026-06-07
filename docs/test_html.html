@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Syntax Highlighting Test</title>
+  <link rel="stylesheet" href="test_css.css" />
+</head>
+<body>
+  <div class="container">
+    <h1>Geometry Playground</h1>
+
+    <div class="card fade-in">
+      <h2>Triangle Calculator</h2>
+      <form id="triangleForm">
+        <label for="x1">Point A X:</label>
+        <input type="number" id="x1" value="0" step="any" />
+
+        <label for="y1">Point A Y:</label>
+        <input type="number" id="y1" value="0" step="any" />
+
+        <label for="x2">Point B X:</label>
+        <input type="number" id="x2" value="3" step="any" />
+
+        <label for="y2">Point B Y:</label>
+        <input type="number" id="y2" value="0" step="any" />
+
+        <label for="x3">Point C X:</label>
+        <input type="number" id="x3" value="0" step="any" />
+
+        <label for="y3">Point C Y:</label>
+        <input type="number" id="y3" value="4" step="any" />
+
+        <button type="submit" class="btn btn-primary">Calculate</button>
+      </form>
+
+      <div id="result">
+        <p>Area: <span id="areaValue">6.00</span></p>
+      </div>
+    </div>
+
+    <script src="test_javascript.js" type="module"></script>
+  </div>
+</body>
+</html>

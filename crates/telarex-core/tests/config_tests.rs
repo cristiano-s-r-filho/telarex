@@ -24,7 +24,7 @@ fn test_config_save_and_load_roundtrip() {
     assert!(loaded.editor.auto_save);
     assert_eq!(loaded.recent_projects.len(), 1);
     assert_eq!(loaded.recent_projects[0], "/test/path");
-    assert_eq!(loaded.keymaps.global.len(), 5);
+    assert_eq!(loaded.keymaps.global.len(), 7);
 
     let _ = std::fs::remove_dir_all(&dir);
 }
@@ -58,5 +58,5 @@ fn test_config_add_recent_project_evicts_oldest() {
     assert_eq!(config.recent_projects.len(), 10);
     assert_eq!(config.recent_projects[0], "/path_new");
     // /path_0 should have been evicted (truncate at 10 removes oldest from end)
-    assert_eq!(config.recent_projects[9], "/path_0");
+    assert_eq!(config.recent_projects[9], "/path_1");
 }

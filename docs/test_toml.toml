@@ -1,0 +1,37 @@
+# Example TOML for syntax highlighting test
+[project]
+name = "geometry-engine"
+version = "2.1.0"
+description = "2D geometry computation library"
+license = "MIT"
+
+[dependencies]
+lodash = { version = "^4.17.21", optional = false }
+jest = { version = "^29.0.0", optional = true }
+
+[shapes.triangle]
+vertices = 3
+area_formula = "0.5 * |(x1*(y2-y3) + x2*(y3-y1) + x3*(y1-y2))|"
+properties = ["perimeter", "centroid", "incenter"]
+
+[shapes.circle]
+vertices = 1
+area_formula = "pi * r^2"
+properties = ["circumference", "diameter", "sector"]
+
+[[test_cases]]
+name = "right_triangle"
+expected_area = 6.0
+tags = ["basic", "triangle"]
+
+[[test_cases.points]]
+x = 0.0
+y = 0.0
+
+[[test_cases.points]]
+x = 3.0
+y = 0.0
+
+[[test_cases.points]]
+x = 0.0
+y = 4.0

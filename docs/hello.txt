@@ -15,5 +15,5 @@ A test only!
 #(testing reactions on the Beta declarations) It works!
 #(testing Insert Mode) It kinda works!
 #(Testing new Modeless Editing) It works! 
-
-#(Testing new BufferManager) It technically works!   
+#(Testing new BufferManager) It technically works!
+#(Testing new Open Beta -- full release 0.5.0) IT technically works!! [#06.06.2026]    

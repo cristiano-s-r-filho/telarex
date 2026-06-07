@@ -125,6 +125,7 @@ impl LayoutTree {
             self.nodes[child_idx].parent = Some(parent_idx);
         }
 
+        self.nodes[idx].kind = NodeKind::Split;
         self.active_pane = self.find_first_pane_id(parent_idx);
     }
 
@@ -265,7 +266,7 @@ impl LayoutTree {
                     Direction::Horizontal => "|",
                     Direction::Vertical => "-",
                 };
-                frame.render_widget(Paragraph::new(divider).fg(Color::Gray), divider_area);
+                frame.render_widget(Paragraph::new(divider).fg(Color::DarkGray), divider_area);
 
                 self.recurse_draw(node.children[0], p1_area, frame, ctx);
                 self.recurse_draw(node.children[1], p2_area, frame, ctx);
@@ -280,7 +281,13 @@ impl Component for LayoutTree {
     }
 
     fn handle_event(&mut self, event: &Event, ctx: &mut AppContext) -> EventResult {
-        self.handle_event(event, ctx)
+        let pane_idx = self.nodes.iter().position(|n| n.id == self.active_pane);
+        if let Some(idx) = pane_idx {
+            if let NodeKind::Pane(ref mut editor) = self.nodes[idx].kind {
+                return editor.handle_event(event, ctx);
+            }
+        }
+        EventResult::Unhandled
     }
 }
 
@@ -373,7 +380,7 @@ mod tests {
 
     #[test]
     fn test_sync_focus_unfocused_when_group_unfocused() {
-        let mut tree = split_tree();
+        let tree = split_tree();
         tree.sync_focus(false);
 
         for node in &tree.nodes {

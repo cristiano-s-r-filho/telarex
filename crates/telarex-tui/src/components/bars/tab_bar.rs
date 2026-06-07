@@ -37,8 +37,20 @@ impl TabBar {
                 self.theme.list_inactive
             };
 
-            spans.push(Span::styled(format!(" [{}] ", tab.name), style));
-            spans.push(Span::styled(" | ", self.theme.list_inactive));
+            let pane_count: usize = tab.layout.nodes.iter()
+                .filter(|n| matches!(n.kind, crate::components::NodeKind::Pane(_)))
+                .count();
+            let name = &tab.name;
+
+            if is_active {
+                spans.push(Span::styled(format!(" [{}/{}]{} ", i + 1, tabs.tabs.len(), name), style));
+                if pane_count > 1 {
+                    spans.push(Span::styled(format!("[{}]", pane_count), style));
+                }
+            } else {
+                spans.push(Span::styled(format!(" {} ", name), style));
+            }
+            spans.push(Span::styled(" │ ", self.theme.list_inactive));
         }
 
         let bar = Paragraph::new(Line::from(spans))
