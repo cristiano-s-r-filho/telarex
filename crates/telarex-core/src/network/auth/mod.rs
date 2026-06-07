@@ -1,10 +1,19 @@
+//! Authentication — quantum-resistant identity using ML-DSA (Dilithium).
+//!
+//! [`QuantumAuth`] provides static methods for generating keys, signing
+//! challenges, and verifying proofs. [`QuantumId`] holds a peer's public key.
+//! This replaces the classical Schnorr-based ZK identification scheme.
+
 pub use pqc_dilithium::Keypair;
 use serde::{Deserialize, Serialize};
 
-/// Quantum-Resistant Identity System using ML-DSA (Dilithium)
-/// This replaces the classical Schnorr-based ZK identification.
+/// Quantum-resistant identity system using ML-DSA (Dilithium).
+///
+/// Provides static methods for key generation, challenge signing, and proof
+/// verification. This replaces the earlier Schnorr-based ZK scheme.
 pub struct QuantumAuth;
 
+/// A quantum-safe identity containing only the public key.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QuantumId {
     pub public_key: Vec<u8>,

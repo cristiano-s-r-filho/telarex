@@ -1,3 +1,9 @@
+//! Configuration — TOML-based settings, theme engine, and style registry.
+//!
+//! Top-level functions [`load`] and [`save`] read/write the full `TelaRexConfig`
+//! from the platform config directory. Sub-modules provide schema definitions,
+//! a theme engine, and a style registry for UI/syntax token styles.
+
 pub mod schema;
 pub mod style_registry;
 pub mod theme_engine;
@@ -5,6 +11,7 @@ pub use schema::{EditorConfig, TelaRexConfig};
 pub use style_registry::{StyleRegistry, StyleToken};
 pub use theme_engine::ThemeEngine;
 
+/// Application name used for config/data directory paths.
 pub const APP_NAME: &str = "telarex";
 
 fn config_path(session: Option<&str>) -> Result<std::path::PathBuf, Box<dyn std::error::Error>> {

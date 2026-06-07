@@ -1,3 +1,4 @@
+//! Macro palette — record and replay keyboard macros.
 use crossterm::event::{KeyCode, KeyEventKind};
 use ratatui::{
     layout::Rect,
@@ -9,13 +10,18 @@ use crate::theme::Theme;
 use crate::tui_compat::{AppContext, Component, DrawContext, Event, EventResult};
 use super::modal::Modal;
 
+/// Macro palette — record and replay keyboard macros.
 pub struct MacroPalette {
+    /// The underlying modal widget.
     pub modal: Modal,
+    /// Ratatui list state for action selection.
     pub list_state: ListState,
     committed_action: Option<MacroAction>,
+    /// The current theme.
     pub theme: Theme,
 }
 
+/// A macro action selected by the user — record new or play existing.
 #[derive(Clone, Debug)]
 pub enum MacroAction {
     RecordNew,
@@ -23,6 +29,7 @@ pub enum MacroAction {
 }
 
 impl MacroPalette {
+    /// Creates a new hidden `MacroPalette`.
     pub fn new() -> Self {
         let mut list_state = ListState::default();
         list_state.select(Some(0));
@@ -34,6 +41,7 @@ impl MacroPalette {
         }
     }
 
+    /// Returns the action the user confirmed, if any.
     pub fn take_action(&mut self) -> Option<MacroAction> {
         self.committed_action.take()
     }

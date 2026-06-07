@@ -1,3 +1,4 @@
+//! Modal components — configuration, input, error, macro, and shared modal base.
 pub mod config_modal;
 pub mod input_modal;
 pub mod error_modal;

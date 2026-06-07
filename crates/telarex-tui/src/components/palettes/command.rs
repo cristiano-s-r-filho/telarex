@@ -1,3 +1,4 @@
+//! Command palette — searchable list of available editor commands.
 use telarex_core::command::Command;
 use crossterm::event::{KeyCode, KeyEventKind, KeyModifiers};
 use ratatui::{
@@ -12,17 +13,22 @@ use crate::tui_compat::{AppContext, Component, DrawContext, Event, EventResult};
 use crate::theme::Theme;
 use ratatui::prelude::Stylize;
 
+/// Searchable command palette — filters and selects from available [`Command`]s.
 pub struct CommandPalette {
     input: String,
     all_commands: Vec<Command>,
     filtered_commands: Vec<Command>,
+    /// Ratatui list state for selection tracking.
     pub list_state: ListState,
+    /// Whether the palette is currently open.
     pub active: bool,
+    /// The current theme.
     pub theme: Theme,
     committed_command: Option<Command>,
 }
 
 impl CommandPalette {
+    /// Creates a new `CommandPalette` with all available commands loaded.
     pub fn new() -> Self {
         let all_commands = Command::all();
         let mut state = ListState::default();
@@ -40,6 +46,7 @@ impl CommandPalette {
         }
     }
 
+    /// Opens the palette and clears the input field.
     pub fn show(&mut self) {
         self.active = true;
         self.input.clear();
@@ -50,11 +57,13 @@ impl CommandPalette {
         self.committed_command = None;
     }
 
+    /// Closes the palette.
     pub fn hide(&mut self) {
         self.active = false;
         self.committed_command = None;
     }
 
+    /// Returns the command that was confirmed by the user, if any.
     pub fn take_selected(&mut self) -> Option<Command> {
         self.committed_command.take()
     }
@@ -157,7 +166,7 @@ impl CommandPalette {
             .borders(Borders::ALL)
             .title(" Command Palette ")
             .border_style(Style::default().fg(self.theme.border_active))
-            .bg(self.theme.bg);
+            .bg(self.theme.surface_alt);
         
         let inner = block.inner(palette_area);
         frame.render_widget(block, palette_area);
@@ -174,7 +183,7 @@ impl CommandPalette {
         ])
         .split(inner);
 
-        frame.render_widget(Paragraph::new(input_line).bg(self.theme.bg), chunks[0]);
+        frame.render_widget(Paragraph::new(input_line).bg(self.theme.surface_alt), chunks[0]);
 
         let items: Vec<ListItem> = self
             .filtered_commands

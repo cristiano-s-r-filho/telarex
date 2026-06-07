@@ -1,3 +1,4 @@
+//! File explorer component — directory tree navigation and file selection.
 use std::path::{Path, PathBuf};
 use std::cell::RefCell;
 use ratatui::{
@@ -12,24 +13,35 @@ use crate::theme::Theme;
 use crossterm::event::{KeyCode, KeyEventKind, KeyModifiers};
 use crate::components::modals::InputModal;
 
+/// File system explorer widget — navigates directories and selects files.
 pub struct FileTree {
+    /// The root directory being displayed.
     pub root: PathBuf,
+    /// Sorted directory entries for the current root.
     pub entries: Vec<DirEntry>,
+    /// Ratatui list state for selection tracking.
     pub state: RefCell<ListState>,
+    /// Whether the file tree has keyboard focus.
     pub focused: bool,
+    /// The current theme.
     pub theme: Theme,
     input_modal: InputModal,
     file_to_open: Option<PathBuf>,
 }
 
+/// A single entry in the file tree — file or directory.
 #[derive(Clone, Debug)]
 pub struct DirEntry {
+    /// Display name of the entry.
     pub name: String,
+    /// Full filesystem path.
     pub path: PathBuf,
+    /// Whether this entry is a directory.
     pub is_dir: bool,
 }
 
 impl FileTree {
+    /// Creates a new `FileTree` rooted at the current working directory.
     pub fn new() -> Self {
         let root = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
         let root = if let Ok(abs) = root.canonicalize() { abs } else { root };
@@ -49,6 +61,7 @@ impl FileTree {
         tree
     }
 
+    /// Re-reads the filesystem for the current root directory.
     pub fn refresh(&mut self) {
         let mut entries = Vec::new();
         // Add parent directory link if not at filesystem root
@@ -67,6 +80,7 @@ impl FileTree {
         self.entries = entries;
     }
 
+    /// Returns the full path of the currently selected entry.
     pub fn selected_file(&self) -> Option<PathBuf> {
         self.state.borrow().selected().and_then(|i| self.entries.get(i).map(|e| e.path.clone()))
     }
@@ -75,6 +89,7 @@ impl FileTree {
         self.file_to_open.take()
     }
 
+    /// Changes the root directory to `path` and refreshes the listing.
     pub fn change_dir(&mut self, path: &Path) -> std::io::Result<()> {
         let abs_path = if let Ok(abs) = path.canonicalize() { abs } else { path.to_path_buf() };
         self.root = abs_path;
@@ -107,11 +122,13 @@ impl FileTree {
         Ok(())
     }
 
+    /// Shows the input modal with the given title for creating a new folder.
     pub fn input_modal_show(&mut self, title: &str, _id: &str) {
         self.input_modal.modal.title = title.to_string();
         self.input_modal.show();
     }
 
+    /// Retrieves the value entered in the input modal, if any.
     pub fn take_input_value(&mut self, _id: &str) -> Option<String> {
         self.input_modal.take_value()
     }
@@ -183,13 +200,13 @@ impl Component for FileTree {
 
     fn draw(&self, frame: &mut Frame, area: Rect, ctx: &DrawContext) {
         let border_style = if self.focused { Style::default().fg(self.theme.border_active) } else { Style::default().fg(self.theme.border_inactive) };
-        let block = Block::default().borders(Borders::ALL).title(format!(" Explorer: {} ", self.root.display())).border_style(border_style).bg(self.theme.bg);
+        let block = Block::default().borders(Borders::ALL).title(format!(" Explorer: {} ", self.root.display())).border_style(border_style).bg(self.theme.surface);
         let items: Vec<ListItem> = self.entries.iter().map(|e| {
             let icon = if e.is_dir { "▸ " } else { "  " };
             let style = if e.is_dir { Style::default().fg(self.theme.border_active).add_modifier(Modifier::BOLD) } else { Style::default().fg(self.theme.fg) };
             ListItem::new(format!("{}{}", icon, e.name)).style(style)
         }).collect();
-        let list = List::new(items).block(block).highlight_style(Style::default().bg(self.theme.selection_bg).add_modifier(Modifier::BOLD)).highlight_symbol("▶ ");
+        let list = List::new(items).block(block).highlight_style(Style::default().bg(self.theme.surface_alt).fg(self.theme.accent).add_modifier(Modifier::BOLD)).highlight_symbol("▶ ");
         frame.render_stateful_widget(list, area, &mut self.state.borrow_mut());
         if self.input_modal.modal.active { self.input_modal.draw(frame, frame.area(), ctx); }
     }

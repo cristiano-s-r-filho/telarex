@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 
 pub const CURRENT_CONFIG_VERSION: u8 = 1;
 
+/// Top-level editor configuration, serialized as TOML.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct TelaRexConfig {
     pub version: u8,
@@ -13,12 +14,14 @@ pub struct TelaRexConfig {
     pub keymaps: KeymapConfig,
 }
 
+/// Network connectivity settings.
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
 pub struct NetworkConfig {
     pub bootstrap_node: String,
     pub listen_addr: String,
 }
 
+/// Keybinding configuration for global, normal, insert, and explorer modes.
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
 pub struct KeymapConfig {
     pub global: HashMap<String, String>,
@@ -27,6 +30,7 @@ pub struct KeymapConfig {
     pub explorer: HashMap<String, String>,
 }
 
+/// Identity profile with username, display name, and cryptographic seed.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct UserProfile {
     pub username: String,
@@ -50,6 +54,7 @@ impl Default for UserProfile {
     }
 }
 
+/// Visual editor settings (tab size, theme, vim mode, line numbers, etc.).
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct EditorConfig {
     pub tab_size: usize,

@@ -1,10 +1,15 @@
 use std::path::Path;
 use anyhow::Result;
 
+/// A lightweight Git wrapper for sidecar operations.
+///
+/// Provides status, stage, commit, push, fetch, and log operations
+/// without interfering with the primary CRDT-based sync system.
 pub struct GitSidecar {
     repo: git2::Repository,
 }
 
+/// The current state of the working tree relative to HEAD.
 #[derive(Debug, Clone, Default)]
 pub struct GitStatus {
     pub branch: String,
@@ -16,6 +21,7 @@ pub struct GitStatus {
 }
 
 impl GitSidecar {
+    /// Open or create a Git repository at the given path.
     pub fn open(path: &Path) -> Result<Self> {
         let repo = if path.join(".git").exists() {
             git2::Repository::open(path)?
@@ -25,6 +31,7 @@ impl GitSidecar {
         Ok(Self { repo })
     }
 
+    /// Return the working tree status (branch, modified, staged, untracked, ahead/behind).
     pub fn status(&self) -> Result<GitStatus> {
         let branch = self
             .repo
@@ -75,6 +82,7 @@ impl GitSidecar {
         }
     }
 
+    /// Stage specific paths for the next commit.
     pub fn stage(&self, paths: &[&Path]) -> Result<()> {
         let mut index = self.repo.index()?;
         for path in paths {
@@ -84,6 +92,7 @@ impl GitSidecar {
         Ok(())
     }
 
+    /// Stage all changes (new, modified, deleted) for the next commit.
     pub fn stage_all(&self) -> Result<()> {
         let mut index = self.repo.index()?;
         index.add_all(["*"].iter(), git2::IndexAddOption::DEFAULT, None)?;
@@ -91,6 +100,7 @@ impl GitSidecar {
         Ok(())
     }
 
+    /// Unstage all currently staged changes.
     pub fn unstage_all(&self) -> Result<()> {
         let head = self.repo.head()?;
         let tree = head.peel_to_tree()?;
@@ -100,6 +110,7 @@ impl GitSidecar {
         Ok(())
     }
 
+    /// Create a commit with the given message. Returns the commit OID.
     pub fn commit(&self, message: &str) -> Result<String> {
         let mut index = self.repo.index()?;
         let tree_oid = index.write_tree()?;
@@ -120,6 +131,7 @@ impl GitSidecar {
         Ok(oid.to_string())
     }
 
+    /// Push the given branch to the named remote.
     pub fn push(&self, remote: &str, branch: &str) -> Result<()> {
         let mut remote = self.repo.find_remote(remote)?;
         let refspec = format!("refs/heads/{}:refs/heads/{}", branch, branch);
@@ -137,6 +149,7 @@ impl GitSidecar {
         Ok(())
     }
 
+    /// Fetch latest references from the named remote.
     pub fn fetch(&self, remote: &str) -> Result<()> {
         let mut remote = self.repo.find_remote(remote)?;
         let mut callbacks = git2::RemoteCallbacks::new();
@@ -147,6 +160,7 @@ impl GitSidecar {
         Ok(())
     }
 
+    /// Return up to `max_count` recent commits.
     pub fn log(&self, max_count: usize) -> Result<Vec<GitCommit>> {
         let mut revwalk = self.repo.revwalk()?;
         revwalk.push_head()?;
@@ -169,6 +183,7 @@ impl GitSidecar {
     }
 }
 
+/// A single commit entry returned by [`GitSidecar::log`].
 #[derive(Debug, Clone)]
 pub struct GitCommit {
     pub oid: String,

@@ -1,5 +1,7 @@
+//! UIAction enum — all high-level actions that can be triggered by key bindings.
 use telarex_core::command::Command as CoreCommand;
 
+/// High-level UI action triggered by key bindings or command palette.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum UIAction {
     Core(CoreCommand),

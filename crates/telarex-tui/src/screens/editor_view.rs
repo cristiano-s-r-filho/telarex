@@ -1,3 +1,4 @@
+//! Editor screen — main editing workspace with file tree, tabs, palettes, and status bar.
 use telarex_core::command::Command;
 use telarex_core::workspace::Workspace;
 use crate::components::{Editor, FileTree, StatusBar, TabBar, CommandPalette, SearchPalette, SearchResult, NodeKind, TabController};
@@ -19,11 +20,17 @@ use crate::network::NetworkCommand;
 
 use telarex_core::crdt::sync_engine::SyncEngine;
 
+/// Main editor screen — combines file tree, tabs, status bar, palettes, and network sync.
 pub struct EditorView {
+    /// The current workspace root and metadata.
     pub workspace: Workspace,
+    /// The file explorer widget.
     pub file_tree: FileTree,
+    /// Multi-tab controller.
     pub tabs: TabController,
+    /// Tab bar renderer.
     pub tab_bar: TabBar,
+    /// Status bar widget.
     pub status_bar: StatusBar,
     command_palette: RefCell<CommandPalette>,
     search_palette: RefCell<SearchPalette>,
@@ -31,22 +38,29 @@ pub struct EditorView {
     focused_child: FocusTarget,
     explorer_visible: bool,
     config_requested: bool,
+    /// Set to `true` when a factory reset is requested via command palette.
     pub reset_requested: bool,
     lsp_client: Option<LspClient>,
     doc_version: i32,
     macro_state: MacroState,
     recorded_events: Vec<KeyEvent>,
+    /// CRDT sync engine for collaborative editing.
     pub sync_engine: SyncEngine,
+    /// Channel to send commands to the network manager.
     pub network_tx: Option<mpsc::Sender<NetworkCommand>>,
     key_mapper: KeyMapper,
     last_area: RefCell<Rect>,
     search_rx: Option<mpsc::Receiver<SearchResult>>,
+    /// Modal for entering a lodge name when sharing.
     pub share_lodge_modal: InputModal,
     file_to_open: Option<std::path::PathBuf>,
+    /// Current editing mode (e.g. "normal", "window", "insert").
     pub mode: String,
     git_sidecar: Option<telarex_core::git_sidecar::GitSidecar>,
     pending_git_commit: Option<String>,
+    /// Tab width in spaces.
     pub tab_size: usize,
+    /// Whether line numbers are shown in editors.
     pub show_line_numbers: bool,
 }
 
@@ -57,6 +71,7 @@ enum MacroState { Idle, Recording(String), Replaying }
 enum FocusTarget { Explorer, Editor }
 
 impl EditorView {
+    /// Creates a new `EditorView` with a single tab and the file explorer at the workspace root.
     pub fn new() -> Self {
         let editor = Editor::new();
         let file_tree = FileTree::new();
@@ -67,7 +82,7 @@ impl EditorView {
             workspace, file_tree,
             tabs: TabController::new(editor),
             tab_bar: TabBar { theme: crate::theme::Theme::default() },
-            status_bar: StatusBar::default(),
+            status_bar: StatusBar { theme: crate::theme::Theme::default(), ..Default::default() },
             command_palette: RefCell::new(CommandPalette::new()),
             search_palette: RefCell::new(SearchPalette::new()),
             macro_palette: RefCell::new(MacroPalette::new()),
@@ -98,10 +113,12 @@ impl EditorView {
         view
     }
 
+    /// Applies a stylesheet to all editor panes, tab bar, file tree, and status bar.
     pub fn apply_theme(&mut self, ss: &telarex_core::syntax::StyleSheet) {
         let theme = crate::theme::Theme::from_stylesheet(ss);
         self.tab_bar.theme = theme.clone();
         self.file_tree.theme = theme.clone();
+        self.status_bar.theme = theme.clone();
         // Update all editors in the layout
         for tab in self.tabs.tabs.iter_mut() {
             for node in tab.layout.nodes.iter_mut() {
@@ -113,6 +130,7 @@ impl EditorView {
         self.sync_status_bar();
     }
 
+    /// Applies editor-level config (tab size, line numbers) to all panes.
     pub fn apply_editor_config(&mut self) {
         for tab in self.tabs.tabs.iter_mut() {
             for node in tab.layout.nodes.iter_mut() {
@@ -124,6 +142,7 @@ impl EditorView {
         }
     }
 
+    /// Loads a file into the editor. If the path is a directory, changes the file tree root.
     pub fn load_file(&mut self, path: impl AsRef<std::path::Path>) -> std::io::Result<()> {
         let path_ref = path.as_ref();
         let path_buf = if path_ref.exists() {
@@ -137,7 +156,7 @@ impl EditorView {
         Ok(())
     }
 
-    /// Load a document into the currently active pane (not a new tab).
+    /// Loads a document into the currently active pane (not a new tab).
     pub fn load_doc_to_active_pane(&mut self, path: std::path::PathBuf, doc: Arc<Mutex<telarex_core::buffer::ManagedBuffer>>) {
         let active_id = self.tabs.active_tab_ref().layout.active_pane;
         for node in self.tabs.active_tab_mut().layout.nodes.iter_mut() {
@@ -151,6 +170,7 @@ impl EditorView {
         self.sync_status_bar();
     }
 
+    /// Returns any pending file path to open from the file tree, explorer, or editor.
     pub fn take_file_to_open(&mut self) -> Option<std::path::PathBuf> {
         if let Some(p) = self.file_to_open.take() { return Some(p); }
         if let Some(path) = self.file_tree.take_file_to_open() {
@@ -165,6 +185,7 @@ impl EditorView {
         None
     }
 
+    /// Returns a mutable reference to the active editor pane.
     pub fn get_active_editor(&mut self) -> Option<&mut Editor> {
         let active_id = self.tabs.active_tab_mut().layout.active_pane;
         for node in self.tabs.active_tab_mut().layout.nodes.iter_mut() {
@@ -175,6 +196,7 @@ impl EditorView {
         None
     }
 
+    /// Returns a shared reference to the active editor pane.
     pub fn get_active_editor_ref(&self) -> Option<&Editor> {
         let active_id = self.tabs.active_tab_ref().layout.active_pane;
         for node in self.tabs.active_tab_ref().layout.nodes.iter() {
@@ -185,10 +207,12 @@ impl EditorView {
         None
     }
 
+    /// Returns `true` if any palette or modal overlay is active.
     pub fn is_palette_active(&self) -> bool {
         self.command_palette.borrow().active || self.search_palette.borrow().active || self.macro_palette.borrow().modal.active || self.share_lodge_modal.modal.active
     }
 
+    /// Starts the LSP client for the given workspace root.
     pub fn start_lsp(&mut self, root: &std::path::Path) {
         let (tx, _rx) = mpsc::channel(100);
         let client = LspClient::start("rust-analyzer", root, tx);
@@ -204,6 +228,7 @@ impl EditorView {
         self.sync_status_bar();
     }
 
+    /// Notifies the LSP client of a document change.
     pub fn notify_lsp_change(&mut self, _path: std::path::PathBuf, text: String) {
         self.doc_version += 1;
         let uri = format!("file:///{}", _path.display());
@@ -214,6 +239,7 @@ impl EditorView {
         }
     }
 
+    /// Synchronises the status bar with the active editor state.
     pub fn sync_status_bar(&mut self) {
         let (path_str, modified, pos, lang, selections) = {
             let active_id = self.tabs.active_tab_ref().layout.active_pane;
@@ -258,6 +284,7 @@ impl EditorView {
         }
     }
 
+    /// Sets the channel for sending commands to the network manager.
     pub fn set_network_tx(&mut self, tx: mpsc::Sender<NetworkCommand>) {
         self.network_tx = Some(tx);
     }
@@ -468,10 +495,12 @@ impl EditorView {
         }
     }
 
+    /// Returns and clears a pending share-workspace request.
     pub fn take_share_request(&mut self) -> Option<String> {
         self.share_lodge_modal.take_value()
     }
 
+    /// Returns and clears the config-open request flag.
     pub fn take_config_request(&mut self) -> bool {
         let req = self.config_requested;
         self.config_requested = false;

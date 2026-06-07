@@ -3,10 +3,12 @@ use automerge::{AutoCommit, ReadDoc, transaction::Transactable, sync::SyncDoc, O
 use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
 
+/// Automerge-based CRDT engine for synchronised document editing.
 pub struct SyncEngine {
     pub documents: Arc<Mutex<Vec<ManagedDocument>>>,
 }
 
+/// A document tracked by the sync engine, with an Automerge document and object IDs.
 pub struct ManagedDocument {
     pub path: PathBuf,
     pub doc: AutoCommit,
@@ -15,12 +17,14 @@ pub struct ManagedDocument {
 }
 
 impl SyncEngine {
+    /// Create an empty sync engine.
     pub fn new() -> Self {
         Self {
             documents: Arc::new(Mutex::new(Vec::new())),
         }
     }
 
+    /// Register a path for sync; creates Automerge text and cursor objects.
     pub fn register_document(&self, path: PathBuf) {
         let mut docs = self.documents.lock().unwrap();
         if !docs.iter().any(|d| d.path == path) {
@@ -36,6 +40,7 @@ impl SyncEngine {
         }
     }
 
+    /// Apply a local text splice and record it in the CRDT.
     pub fn apply_local_splice(&self, path: &PathBuf, pos: usize, del: isize, text: &str) {
         let mut docs = self.documents.lock().unwrap();
         if let Some(managed) = docs.iter_mut().find(|d| d.path == *path) {
@@ -44,6 +49,7 @@ impl SyncEngine {
         }
     }
 
+    /// Replace the entire document content via the CRDT.
     pub fn apply_local_full(&self, path: &PathBuf, text: &str) {
         let mut docs = self.documents.lock().unwrap();
         if let Some(managed) = docs.iter_mut().find(|d| d.path == *path) {
@@ -53,6 +59,7 @@ impl SyncEngine {
         }
     }
 
+    /// Update the cursor position for a peer in the CRDT.
     pub fn update_cursor(&self, path: &PathBuf, peer_id: &str, pos: usize) {
         let mut docs = self.documents.lock().unwrap();
         if let Some(managed) = docs.iter_mut().find(|d| d.path == *path) {
@@ -61,6 +68,7 @@ impl SyncEngine {
         }
     }
 
+    /// Generate a sync message to send to a remote peer for the given document.
     pub fn generate_sync_message(&self, path: &PathBuf, state: &mut automerge::sync::State) -> Option<automerge::sync::Message> {
         let mut docs = self.documents.lock().unwrap();
         let managed = docs.iter_mut().find(|d| d.path == *path)?;
@@ -68,6 +76,7 @@ impl SyncEngine {
         msg
     }
 
+    /// Receive and process a sync message from a remote peer.
     pub fn receive_sync_message(&self, path: &PathBuf, state: &mut automerge::sync::State, msg: automerge::sync::Message) {
         let mut docs = self.documents.lock().unwrap();
         if let Some(managed) = docs.iter_mut().find(|d| d.path == *path) {
@@ -75,12 +84,14 @@ impl SyncEngine {
         }
     }
 
+    /// Get the current text content of a synced document.
     pub fn get_content(&self, path: &PathBuf) -> Option<String> {
         let docs = self.documents.lock().unwrap();
         let managed = docs.iter().find(|d| d.path == *path)?;
         managed.doc.text(&managed.text_obj).ok()
     }
 
+    /// Get all peer cursor positions for a synced document.
     pub fn get_cursors(&self, path: &PathBuf) -> HashMap<String, usize> {
         let mut cursors = HashMap::new();
         let docs = self.documents.lock().unwrap();

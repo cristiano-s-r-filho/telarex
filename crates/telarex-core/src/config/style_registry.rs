@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+/// A single style token with optional foreground/background and bold/italic flags.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StyleToken {
     pub fg: Option<String>,
@@ -9,6 +10,7 @@ pub struct StyleToken {
     pub italic: bool,
 }
 
+/// A registry of named style tokens for syntax highlighting and UI chrome.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StyleRegistry {
     pub syntax: HashMap<String, StyleToken>,

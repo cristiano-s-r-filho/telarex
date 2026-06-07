@@ -1,3 +1,4 @@
+//! Welcome screen — landing page with menu, recent projects, and lodge discovery.
 use crossterm::event::{KeyCode, KeyEventKind};
 use ratatui::{
     layout::{Constraint, Layout, Rect, Alignment},
@@ -6,6 +7,7 @@ use ratatui::{
     widgets::{Block, Borders, Clear, List, ListItem, ListState, Paragraph, Padding},
     Frame,
 };
+use ratatui::prelude::Stylize;
 use crate::tui_compat::{AppContext, Component, DrawContext, Event, EventResult};
 use std::cell::RefCell;
 use uuid::Uuid;
@@ -14,27 +16,40 @@ use crate::components::modals::InputModal;
 use crate::utils::sanitize;
 use rand::seq::SliceRandom;
 
+/// A lodge discovered on the network.
 pub struct DiscoveredLodge {
+    /// Unique identifier of the lodge.
     pub id: Uuid,
+    /// Human-readable name of the lodge.
     pub name: String,
+    /// Peer ID of the host that advertised the lodge.
     pub peer_id: String,
 }
 
+/// Welcome/home screen — shows banner, menu, recent projects, and lodge list.
 pub struct WelcomeView {
+    /// The current theme.
     pub theme: Theme,
     open_editor_with_path: Option<String>,
     open_config: bool,
     join_lodge_requested: Option<Uuid>,
+    /// Set when the user requests deletion of a lodge.
     pub delete_lodge_requested: Option<Uuid>,
     input_modal: InputModal,
     join_by_id_modal: InputModal,
+    /// Whether the recent-projects modal is open.
     pub recent_projects_modal_active: bool,
+    /// Whether the discovered-lodges modal is open.
     pub discovered_lodges_modal_active: bool,
     recent_projects_state: RefCell<ListState>,
     discovered_lodges_state: RefCell<ListState>,
+    /// Discovered lodges from the network.
     pub discovered_lodges: Vec<DiscoveredLodge>,
+    /// List of recently opened projects.
     pub recent_projects: Vec<String>,
+    /// Display name of the current user.
     pub username: String,
+    /// Path of the most recently opened project, if any.
     pub last_opened: Option<String>,
     selected_menu_item: usize,
     subtitle: String,
@@ -42,6 +57,7 @@ pub struct WelcomeView {
 }
 
 impl WelcomeView {
+    /// Creates a new `WelcomeView`.
     pub fn new(_session: Option<String>) -> Self {
         let subtitles = vec![
             "Where code meets the void.",
@@ -78,9 +94,13 @@ impl WelcomeView {
         }
     }
 
+    /// Returns and clears a pending lodge join request.
     pub fn take_join_request(&mut self) -> Option<Uuid> { self.join_lodge_requested.take() }
+    /// Returns and clears a pending lodge deletion request.
     pub fn take_delete_request(&mut self) -> Option<Uuid> { self.delete_lodge_requested.take() }
+    /// Returns and clears a pending file-open request.
     pub fn take_open_request(&mut self) -> Option<String> { self.open_editor_with_path.take() }
+    /// Returns and clears the config-open request flag.
     pub fn take_config_request(&mut self) -> bool {
         let req = self.open_config;
         self.open_config = false;
@@ -173,7 +193,7 @@ impl Component for WelcomeView {
             let style = if is_selected {
                 self.theme.list_selected
             } else {
-                Style::default()
+                Style::default().fg(self.theme.fg)
             };
             let symbol = match *key {
                 "N" => "◆",
@@ -187,11 +207,11 @@ impl Component for WelcomeView {
             };
             menu_lines.push(ListItem::new(Line::from(vec![
                 Span::styled(format!(" {}  ", symbol), Style::default().fg(*color).add_modifier(Modifier::BOLD)),
-                Span::raw(*label),
+                Span::styled(*label, Style::default().fg(self.theme.fg)),
             ])).style(style));
         }
         let options_list = List::new(menu_lines)
-            .block(Block::default().borders(Borders::ALL).padding(Padding::uniform(1)))
+            .block(Block::default().borders(Borders::ALL).bg(self.theme.surface).padding(Padding::uniform(1)))
             .highlight_style(Style::default().add_modifier(Modifier::BOLD));
         frame.render_widget(options_list, main_content[0]);
 
@@ -220,11 +240,11 @@ impl Component for WelcomeView {
             Line::from(""),
             Line::from(vec![
                 Span::styled(" Status: ", self.theme.status_label),
-                Span::styled(" READY ", Style::default().bg(self.theme.success).fg(Color::Black).add_modifier(Modifier::BOLD)),
+                Span::styled(" READY ", Style::default().bg(self.theme.success).fg(self.theme.bg).add_modifier(Modifier::BOLD)),
             ]),
         ];
         let status_box = Paragraph::new(status_lines)
-            .block(Block::default().borders(Borders::ALL).padding(Padding::uniform(1)));
+            .block(Block::default().borders(Borders::ALL).bg(self.theme.surface).padding(Padding::uniform(1)));
         frame.render_widget(status_box, main_content[1]);
 
         // 4. Footer
@@ -241,7 +261,7 @@ impl Component for WelcomeView {
                 .map(|p| ListItem::new(format!(" {} ", sanitize(p))))
                 .collect();
             let list = List::new(items)
-                .block(Block::default().borders(Borders::ALL).title(" Recent Projects ").border_style(Style::default().fg(self.theme.warning)))
+                .block(Block::default().borders(Borders::ALL).title(" Recent Projects ").bg(self.theme.surface_alt).border_style(Style::default().fg(self.theme.warning)))
                 .highlight_style(self.theme.list_selected);
             frame.render_stateful_widget(list, modal_area, &mut self.recent_projects_state.borrow_mut());
         }
@@ -268,7 +288,7 @@ impl Component for WelcomeView {
             };
             frame.render_widget(
                 Paragraph::new(search_text).style(search_style)
-                    .block(Block::default().borders(Borders::ALL).title(" Filter ").border_style(Style::default().fg(self.theme.border_active))),
+                    .block(Block::default().borders(Borders::ALL).title(" Filter ").bg(self.theme.surface_alt).border_style(Style::default().fg(self.theme.border_active))),
                 inner[0],
             );
 
@@ -280,7 +300,7 @@ impl Component for WelcomeView {
                 })
                 .collect();
             let list = List::new(items)
-                .block(Block::default().borders(Borders::ALL).title(" Discovered Lodges ").border_style(Style::default().fg(self.theme.accent)))
+                .block(Block::default().borders(Borders::ALL).title(" Discovered Lodges ").bg(self.theme.surface_alt).border_style(Style::default().fg(self.theme.accent)))
                 .highlight_symbol("▶ ")
                 .highlight_style(self.theme.list_selected);
             frame.render_stateful_widget(list, inner[1], &mut self.discovered_lodges_state.borrow_mut());

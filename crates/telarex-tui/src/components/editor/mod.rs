@@ -1,3 +1,4 @@
+//! Text editor component — buffer editing, cursor movement, syntax highlighting.
 use crossterm::event::{KeyCode, KeyModifiers, KeyEvent};
 use ratatui::
 {
@@ -17,27 +18,42 @@ use telarex_core::syntax::{TreeHighlighter, StyleSheet};
 use crate::theme::Theme;
 use crate::utils::sanitize;
 
+/// A single text edit — position, deletion length, and inserted text.
 #[derive(Debug, Clone)]
 pub struct TextChange {
+    /// Character offset where the edit occurs.
     pub pos: usize,
+    /// Number of characters deleted.
     pub del: usize,
+    /// Text inserted at the position.
     pub text: String,
 }
 
+/// Core text editor widget with syntax highlighting, cursor management, and clipboard support.
 pub struct Editor {
     document: Option<Arc<Mutex<Document>>>,
+    /// Whether this editor pane currently has keyboard focus.
     pub focused: RefCell<bool>,
+    /// Current cursor position as a character offset into the document.
     pub cursor_offset: usize,
+    /// Number of lines scrolled from the top.
     pub scroll_line: usize,
+    /// Number of columns scrolled from the left.
     pub scroll_col: usize,
     last_area: RefCell<Rect>,
     stylesheet: StyleSheet,
     language: Option<String>,
+    /// Width of the gutter area in characters.
     pub gutter_width: usize,
+    /// Number of spaces per tab stop.
     pub tab_size: usize,
+    /// Whether line numbers are displayed in the gutter.
     pub show_line_numbers: bool,
+    /// The current theme applied to the editor.
     pub theme: Theme,
+    /// An active text selection range (start..end character offsets).
     pub selection: Option<std::ops::Range<usize>>,
+    /// The most recent text change, if any.
     pub last_change: Option<TextChange>,
     preferred_visual_col: Option<usize>,
     
@@ -57,6 +73,7 @@ impl std::fmt::Debug for Editor {
 }
 
 impl Editor {
+    /// Creates a new empty `Editor` with default settings.
     pub fn new() -> Self {
         let stylesheet = StyleSheet::default_dark();
         let theme = Theme::from_stylesheet(&stylesheet);
@@ -82,11 +99,13 @@ impl Editor {
         }
     }
 
+    /// Applies a syntax stylesheet, updating both the syntax highlighter and theme.
     pub fn apply_theme(&mut self, ss: &StyleSheet) {
         self.stylesheet = ss.clone();
         self.theme = Theme::from_stylesheet(ss);
     }
 
+    /// Loads a document into the editor and detects language from the file extension.
     pub fn load_document(&mut self, path: std::path::PathBuf, doc: Arc<Mutex<Document>>) {
         self.document = Some(doc);
         self.cursor_offset = 0;
@@ -131,6 +150,7 @@ impl Editor {
         }
     }
 
+    /// Replaces the entire document content with the given text.
     pub fn set_text(&mut self, text: &str) {
         if let Some(doc_arc) = &self.document {
             {
@@ -149,6 +169,7 @@ impl Editor {
         }
     }
 
+    /// Writes the current document content to its file path.
     pub fn save(&mut self) -> std::io::Result<()> {
         if let Some(doc_arc) = &self.document {
             let doc = doc_arc.lock().unwrap();
@@ -160,18 +181,22 @@ impl Editor {
         Ok(())
     }
 
+    /// Returns `true` if the document has unsaved changes.
     pub fn is_modified(&self) -> bool {
         self.document.as_ref().map_or(false, |d| d.lock().unwrap().modified)
     }
 
+    /// Returns the file path of the currently loaded document, if any.
     pub fn file_path(&self) -> Option<std::path::PathBuf> {
         self.document.as_ref().and_then(|d| d.lock().unwrap().path.clone())
     }
 
+    /// Returns the detected programming language of the current document.
     pub fn language(&self) -> Option<&str> {
         self.language.as_deref()
     }
 
+    /// Returns the 1-based (line, column) of the cursor.
     pub fn cursor_position(&self) -> (usize, usize) {
         if let Some(doc_arc) = &self.document {
             let doc = doc_arc.lock().unwrap();
@@ -317,6 +342,7 @@ impl Editor {
         }
     }
 
+    /// Inserts a single character at the cursor position.
     pub fn insert_char(&mut self, ch: char) -> (usize, usize, String) {
         if let Some(doc_arc) = &self.document {
             let pos = self.cursor_offset;
@@ -331,6 +357,7 @@ impl Editor {
         }
     }
 
+    /// Deletes the character before the cursor (backspace).
     pub fn backspace(&mut self) -> Option<(usize, usize, String)> {
         if self.cursor_offset > 0 {
             let mut pos = self.cursor_offset - 1;
@@ -355,6 +382,7 @@ impl Editor {
         None
     }
 
+    /// Deletes the character at the cursor position (delete key).
     pub fn delete_under_cursor(&mut self) -> Option<(usize, usize, String)> {
         if let Some(doc_arc) = &self.document {
             let pos = self.cursor_offset;
@@ -379,6 +407,7 @@ impl Editor {
         None
     }
 
+    /// Copies the current selection to the system clipboard.
     pub fn copy(&mut self) -> Result<(), String> {
         if let Some(range) = &self.selection {
             if let Some(doc_arc) = &self.document {
@@ -389,12 +418,14 @@ impl Editor {
         Ok(())
     }
 
+    /// Pastes text from the system clipboard at the cursor position.
     pub fn paste(&mut self) -> Result<TextChange, String> {
         let text = telarex_core::clipboard::paste()?;
         let (pos, del, t) = self.insert_text(&text);
         Ok(TextChange { pos, del, text: t })
     }
 
+    /// Inserts a multi-character string at the cursor position.
     pub fn insert_text(&mut self, text: &str) -> (usize, usize, String) {
         if let Some(doc_arc) = &self.document {
             let pos = self.cursor_offset;
@@ -409,6 +440,7 @@ impl Editor {
         }
     }
 
+    /// Handles a single key event — cursor movement, text input, or editing command.
     pub fn handle_key_event(&mut self, key_event: &KeyEvent) -> (EventResult, Option<TextChange>) {
         let code = key_event.code;
         let mods = key_event.modifiers;

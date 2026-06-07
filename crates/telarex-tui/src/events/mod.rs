@@ -1,3 +1,4 @@
+//! Event system — action enums and key mapping infrastructure.
 pub mod actions;
 pub mod key_mapper;
 

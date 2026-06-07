@@ -1,3 +1,4 @@
+//! Shared modal base — backdrop, bordered block with title, and inner rect.
 use ratatui::{
     layout::Rect,
     style::Style,
@@ -8,20 +9,25 @@ use ratatui::{
 use crate::theme::Theme;
 use crate::utils::{centered_rect_fixed, sanitize};
 
-/// Shared modal base: renders the backdrop, bordered block with title,
-/// and returns the inner content rect. Uses theme colors by default.
+/// Shared modal base — renders the backdrop, bordered block with title,
+/// and returns the inner content rect.
 pub struct Modal {
+    /// Whether the modal is currently visible.
     pub active: bool,
+    /// Title displayed in the modal's border.
     pub title: String,
 }
 
 impl Modal {
+    /// Creates a new hidden `Modal` with the given title.
     pub fn new(title: &str) -> Self {
         Self { active: false, title: title.to_string() }
     }
 
+    /// Makes the modal visible.
     pub fn show(&mut self) { self.active = true; }
 
+    /// Hides the modal.
     pub fn hide(&mut self) { self.active = false; }
 
     /// Render a modal with themed border/background.
@@ -33,7 +39,7 @@ impl Modal {
             .borders(Borders::ALL)
             .title(format!(" {} ", sanitize(&self.title)))
             .border_style(Style::default().fg(theme.border_active))
-            .bg(theme.bg);
+            .bg(theme.surface_alt);
         let inner = block.inner(modal_area);
         frame.render_widget(block, modal_area);
         Some(inner)

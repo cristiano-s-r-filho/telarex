@@ -1,3 +1,8 @@
+/// System clipboard integration.
+///
+/// Provides `copy` and `paste` operations backed by `arboard` when the
+/// `clipboard` feature is enabled.  Falls back to stub functions that
+/// return an error otherwise.
 #[cfg(feature = "clipboard")]
 mod inner {
     use std::sync::Mutex;
@@ -16,6 +21,7 @@ mod inner {
         })
     }
 
+    /// Copy text to the system clipboard.
     pub fn copy(text: &str) -> Result<(), String> {
         let s = state();
         let mut guard = s.inner.lock().map_err(|e| e.to_string())?;
@@ -37,10 +43,12 @@ mod inner {
 
 #[cfg(not(feature = "clipboard"))]
 mod inner {
+    /// Copy text to the system clipboard.
     pub fn copy(_text: &str) -> Result<(), String> {
         Err("Clipboard support not enabled".to_string())
     }
 
+    /// Paste text from the system clipboard.
     pub fn paste() -> Result<String, String> {
         Err("Clipboard support not enabled".to_string())
     }

@@ -1,3 +1,4 @@
+//! Input modal — simple text input overlay for folder names, paths, etc.
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind};
 use ratatui::{
     layout::{Alignment, Rect},
@@ -10,13 +11,18 @@ use crate::utils::sanitize;
 use crate::theme::Theme;
 use super::modal::Modal;
 
+/// Simple text input modal — collects a single line of text from the user.
 pub struct InputModal {
+    /// The underlying modal widget.
     pub modal: Modal,
+    /// The current value of the input field.
     pub value: String,
+    /// The current theme.
     pub theme: Theme,
 }
 
 impl InputModal {
+    /// Creates a new hidden `InputModal` with the given title.
     pub fn new(title: &str) -> Self {
         Self {
             modal: Modal::new(title),
@@ -25,15 +31,18 @@ impl InputModal {
         }
     }
 
+    /// Shows the modal and clears the input value.
     pub fn show(&mut self) {
         self.modal.show();
         self.value.clear();
     }
 
+    /// Hides the modal.
     pub fn hide(&mut self) {
         self.modal.hide();
     }
 
+    /// Returns the entered value if the modal was confirmed (closed via Enter).
     pub fn take_value(&mut self) -> Option<String> {
         if !self.modal.active && !self.value.is_empty() {
             let val = self.value.clone();

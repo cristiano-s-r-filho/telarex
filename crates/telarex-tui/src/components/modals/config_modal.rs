@@ -1,3 +1,4 @@
+//! Configuration modal — editor, appearance, network, and keymap settings.
 use crossterm::event::{KeyCode, KeyEventKind, KeyModifiers};
 use ratatui::{
     layout::{Rect, Layout, Constraint},
@@ -15,11 +16,16 @@ use crate::utils::sanitize;
 use crate::components::modals::InputModal;
 use super::modal::Modal;
 
+/// Categories of configuration settings.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ConfigCategory {
+    /// Editor settings (tab size, vim mode, line numbers, etc.).
     Editor,
+    /// Appearance settings (theme selection).
     Appearance,
+    /// Network settings (username, bootstrap node).
     Network,
+    /// Keymap reference display.
     Keymaps,
 }
 
@@ -37,12 +43,15 @@ impl ConfigCategory {
     }
 }
 
+/// Configuration editor modal — browse and modify all settings.
 pub struct ConfigModal {
+    /// The underlying modal widget for backdrop and border.
     pub modal: Modal,
     config: TelaRexConfig,
     modified: bool,
     selected_category: usize,
     selected_field: usize,
+    /// The current theme.
     pub theme: Theme,
     input_modal: InputModal,
     session_id: Option<String>,

@@ -4,18 +4,21 @@ use std::sync::{Arc, Mutex};
 use crate::buffer::ManagedBuffer;
 use anyhow::Result;
 
+/// A thread-safe registry of buffers, deduplicated by canonical path.
 pub struct BufferManager {
     // Map of canonicalized path to Shared ManagedBuffer
     buffers: Mutex<HashMap<PathBuf, Arc<Mutex<ManagedBuffer>>>>,
 }
 
 impl BufferManager {
+    /// Create an empty buffer manager.
     pub fn new() -> Self {
         Self {
             buffers: Mutex::new(HashMap::new()),
         }
     }
 
+    /// Get a buffer by path, loading it from disk if not already cached.
     pub fn get_or_load(&self, path: impl AsRef<Path>) -> Result<Arc<Mutex<ManagedBuffer>>> {
         let path_ref = path.as_ref();
         let canonical = if path_ref.exists() {
@@ -45,6 +48,7 @@ impl BufferManager {
         }
     }
 
+    /// Create a new scratch (unnamed, virtual) buffer.
     pub fn create_scratch(&self, name: String) -> Arc<Mutex<ManagedBuffer>> {
         let mut buffers = self.buffers.lock().unwrap();
         let doc = ManagedBuffer::new();
@@ -55,6 +59,7 @@ impl BufferManager {
         shared
     }
 
+    /// Remove a buffer from the registry by its path.
     pub fn remove(&self, path: &Path) {
         let mut buffers = self.buffers.lock().unwrap();
         buffers.remove(path);

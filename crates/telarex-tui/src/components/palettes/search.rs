@@ -1,3 +1,4 @@
+//! Search palette — project-wide file content search with result navigation.
 use crossterm::event::{KeyCode, KeyEventKind, KeyModifiers};
 use ratatui::{
     layout::{Rect, Layout, Constraint},
@@ -11,24 +12,36 @@ use crate::theme::Theme;
 use ratatui::prelude::Stylize;
 use std::path::PathBuf;
 
+/// Project search palette — searches file contents and navigates results.
 pub struct SearchPalette {
+    /// Current search query text.
     pub input: String,
+    /// Whether the palette is currently open.
     pub active: bool,
+    /// Accumulated search results.
     pub results: Vec<SearchResult>,
+    /// Ratatui list state for result navigation.
     pub list_state: ListState,
+    /// The current theme.
     pub theme: Theme,
+    /// Set to `true` when the user requests a project-wide search.
     pub search_requested: bool,
     committed_result: Option<SearchResult>,
 }
 
+/// A single search result — file, line number, and matching content.
 #[derive(Clone, Debug)]
 pub struct SearchResult {
+    /// The file containing the match.
     pub file: PathBuf,
+    /// 1-based line number of the match.
     pub line_number: usize,
+    /// The text of the matching line.
     pub content: String,
 }
 
 impl SearchPalette {
+    /// Creates a new empty `SearchPalette`.
     pub fn new() -> Self {
         let mut list_state = ListState::default();
         list_state.select(None);
@@ -43,6 +56,7 @@ impl SearchPalette {
         }
     }
 
+    /// Opens the search palette and clears the previous query and results.
     pub fn show(&mut self) {
         self.active = true;
         self.input.clear();
@@ -52,26 +66,31 @@ impl SearchPalette {
         self.committed_result = None;
     }
 
+    /// Closes the search palette.
     pub fn hide(&mut self) {
         self.active = false;
         self.search_requested = false;
         self.committed_result = None;
     }
 
+    /// Returns the result the user confirmed, if any.
     pub fn take_selected(&mut self) -> Option<SearchResult> {
         self.committed_result.take()
     }
 
+    /// Returns and clears the search-requested flag.
     pub fn take_search_request(&mut self) -> bool {
         let req = self.search_requested;
         self.search_requested = false;
         req
     }
 
+    /// Returns the current search query text.
     pub fn get_query(&self) -> String {
         self.input.clone()
     }
 
+    /// Adds a single search result to the palette.
     pub fn add_result(&mut self, result: SearchResult) {
         self.results.push(result);
         if self.results.len() == 1 {
@@ -79,6 +98,7 @@ impl SearchPalette {
         }
     }
 
+    /// Replaces all search results with a new batch.
     pub fn update_results(&mut self, results: Vec<SearchResult>) {
         self.results = results;
         if !self.results.is_empty() {
@@ -163,7 +183,7 @@ impl SearchPalette {
             .borders(Borders::ALL)
             .title(" Project Search ")
             .border_style(Style::default().fg(self.theme.border_active))
-            .bg(self.theme.bg);
+            .bg(self.theme.surface_alt);
         
         let inner = block.inner(palette_area);
         frame.render_widget(block, palette_area);
@@ -180,7 +200,7 @@ impl SearchPalette {
         ])
         .split(inner);
 
-        frame.render_widget(Paragraph::new(input_line).bg(self.theme.bg), chunks[0]);
+        frame.render_widget(Paragraph::new(input_line).bg(self.theme.surface_alt), chunks[0]);
 
         let list = if self.results.is_empty() && !self.input.is_empty() {
             List::new(vec![ListItem::new(" [No results found. Press Enter to search]")

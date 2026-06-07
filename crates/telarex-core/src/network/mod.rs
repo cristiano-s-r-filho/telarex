@@ -1,7 +1,15 @@
+//! Networking — libp2p-based peer-to-peer lodge discovery, sync, and authentication.
+//!
+//! [`NetworkEvent`] and [`NetworkCommand`] define the protocol between the UI and
+//! the network layer. [`NetworkManager`] implements the full p2p stack (gossipsub,
+//! mDNS, Kademlia, identify, ping). The [`auth`] sub-module provides
+//! quantum-resistant identity using ML-DSA (Dilithium).
+
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 use std::path::PathBuf;
 
+/// Events produced by the network layer and consumed by the UI/application.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum NetworkEvent {
     PeerConnected(String),
@@ -20,6 +28,7 @@ pub enum NetworkEvent {
     Tick,
 }
 
+/// Commands sent to the network layer from the UI/application.
 #[derive(Debug, Clone)]
 pub enum NetworkCommand {
     ShareLodge { id: Uuid, name: String },

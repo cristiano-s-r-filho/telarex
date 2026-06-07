@@ -5,6 +5,7 @@ use ratatui::style::{Style, Modifier, Color};
 use crate::syntax::stylesheet::{StyleSheet, StyleToken};
 use ropey::Rope;
 
+/// Highlights visible text ranges using per-language Tree-sitter queries and stylesheets.
 pub struct TreeHighlighter {
     highlighter: TSHighlighter,
     configs: HashMap<String, HighlightConfiguration>,
@@ -12,6 +13,8 @@ pub struct TreeHighlighter {
 }
 
 impl TreeHighlighter {
+    /// Create a highlighter pre-configured for Rust, JSON, Markdown, TOML, Python,
+    /// JavaScript, TypeScript, TSX, CSS, HTML, and YAML.
     pub fn new() -> Self {
         let mut configs = HashMap::new();
         
@@ -148,7 +151,7 @@ impl TreeHighlighter {
         }
     }
 
-    /// HIGH-PERFORMANCE HIGHLIGHTING: Processes only the visible range.
+    /// Highlight a range of lines using the given language and stylesheet.
     pub fn highlight_visible_range(
         &mut self,
         rope: &Rope,

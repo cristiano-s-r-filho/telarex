@@ -1,23 +1,24 @@
-#[allow(unused_imports)]
+//! Tab bar — renders tab names for the [`TabController`].
+use ratatui::prelude::Stylize;
 use ratatui::{
-    layout::{Rect, Constraint, Layout},
-    style::{Color, Style, Modifier},
+    layout::Rect,
+    style::Style,
     text::{Line, Span},
-    widgets::{Block, Borders, Paragraph},
+    widgets::{Block, Paragraph},
     Frame,
 };
 use crate::components::tab_controller::TabController;
 use crate::theme::Theme;
 use crate::tui_compat::{AppContext, Component, DrawContext, Event, EventResult};
 
+/// Tab bar widget — renders tab names and highlights the active tab.
 pub struct TabBar {
+    /// The current theme.
     pub theme: Theme,
 }
 
 impl Component for TabBar {
     fn draw(&self, _frame: &mut Frame, _area: Rect, _ctx: &DrawContext) {
-        // TabBar needs a TabController which isn't in DrawContext.
-        // Usually, the parent (EditorView) calls render() instead of draw().
     }
 
     fn handle_event(&mut self, _event: &Event, _ctx: &mut AppContext) -> EventResult {
@@ -27,14 +28,15 @@ impl Component for TabBar {
 
 impl TabBar {
     pub fn render(&self, frame: &mut Frame, area: Rect, tabs: &TabController) {
+        let bg = self.theme.surface;
         let mut spans = Vec::new();
-        
+
         for (i, tab) in tabs.tabs.iter().enumerate() {
             let is_active = i == tabs.active_tab;
             let style = if is_active {
-                self.theme.list_selected
+                self.theme.tab_active
             } else {
-                self.theme.list_inactive
+                self.theme.tab_inactive
             };
 
             let pane_count: usize = tab.layout.nodes.iter()
@@ -43,19 +45,23 @@ impl TabBar {
             let name = &tab.name;
 
             if is_active {
-                spans.push(Span::styled(format!(" [{}/{}]{} ", i + 1, tabs.tabs.len(), name), style));
+                spans.push(Span::styled(format!(" {} ", name), style));
                 if pane_count > 1 {
                     spans.push(Span::styled(format!("[{}]", pane_count), style));
                 }
+                spans.push(Span::styled(" ", Style::default().bg(self.theme.accent)));
             } else {
                 spans.push(Span::styled(format!(" {} ", name), style));
+                spans.push(Span::styled(" ", Style::default().bg(bg)));
             }
-            spans.push(Span::styled(" │ ", self.theme.list_inactive));
         }
 
-        let bar = Paragraph::new(Line::from(spans))
-            .block(Block::default().borders(Borders::BOTTOM).border_style(Style::default().fg(self.theme.border_inactive)));
-        
+        if tabs.tabs.is_empty() {
+            spans.push(Span::styled(" ", Style::default().bg(bg)));
+        }
+
+        let line = Line::from(spans);
+        let bar = Paragraph::new(line).block(Block::default().bg(bg));
         frame.render_widget(bar, area);
     }
 }

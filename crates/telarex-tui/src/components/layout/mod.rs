@@ -1,3 +1,4 @@
+//! Layout tree — split-pane layout engine with directional navigation.
 use ratatui::layout::{Rect, Constraint, Direction, Layout};
 use ratatui::style::Color;
 use ratatui::widgets::Paragraph;
@@ -9,27 +10,42 @@ use uuid::Uuid;
 use crate::components::Editor;
 use crate::tui_compat::{AppContext, Component, DrawContext, Event, EventResult};
 
+/// Kind of a layout node — either a pane containing an [`Editor`] or a split container.
 #[derive(Debug)]
 pub enum NodeKind {
+    /// A leaf node containing an editor widget.
     Pane(Editor),
+    /// An internal node that splits its children.
     Split,
 }
 
+/// Direction for pane navigation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NavDir { Left, Right, Up, Down }
 
+/// A single node in the layout tree — either a pane or a split.
 pub struct LayoutNode {
+    /// Unique identifier for this node.
     pub id: Uuid,
+    /// Whether this node is a pane or a split.
     pub kind: NodeKind,
+    /// Index of the parent node, if any.
     pub parent: Option<usize>,
+    /// Indices of child nodes (empty for panes, two for splits).
     pub children: Vec<usize>,
+    /// Split ratio (0.0–1.0) for the first child's share.
     pub split_ratio: f32, 
+    /// Direction of the split (Horizontal or Vertical).
     pub direction: Direction,
 }
 
+/// A tree of panes and splits — supports splitting, closing, navigation, and recursive drawing.
 pub struct LayoutTree {
+    /// All nodes in the tree.
     pub nodes: Vec<LayoutNode>,
+    /// Index of the root node.
     pub root: usize,
+    /// UUID of the currently active pane.
     pub active_pane: Uuid,
     pub last_area: RefCell<Rect>,
 }

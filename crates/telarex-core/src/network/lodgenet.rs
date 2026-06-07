@@ -35,16 +35,19 @@ enum WireMessage {
     JoinRejected { id: Uuid, peer_id: String },
 }
 
+/// libp2p-based network manager implementing lodge discovery, sync, and auth.
 pub struct NetworkManager {
     event_tx: mpsc::Sender<NetworkEvent>,
     cmd_rx: mpsc::Receiver<NetworkCommand>,
 }
 
 impl NetworkManager {
+    /// Create a network manager from event/command channel endpoints.
     pub fn new(event_tx: mpsc::Sender<NetworkEvent>, cmd_rx: mpsc::Receiver<NetworkCommand>) -> Self {
         Self { event_tx, cmd_rx }
     }
 
+    /// Start the libp2p swarm and begin processing network events/commands.
     pub async fn start(self, identity_seed: String, listen_addr: Option<String>) -> anyhow::Result<()> {
         let mut seed_bytes = [0u8; 32];
         let decoded_seed = hex::decode(&identity_seed).unwrap_or_else(|_| vec![0;32]);
@@ -338,6 +341,7 @@ struct MyBehaviour {
     ping: ping::Behaviour,
 }
 
+/// Union of all network behaviour events emitted by the libp2p swarm.
 #[derive(Debug)]
 pub enum MyBehaviourEvent {
     Gossipsub(gossipsub::Event),

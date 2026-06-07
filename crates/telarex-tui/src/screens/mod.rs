@@ -1,3 +1,4 @@
+//! Screen views — welcome, editor, and config screens.
 mod editor_view;
 mod welcome_view;
 mod config_view;

@@ -1,3 +1,7 @@
+//! Crate-level entry point for the TelaRex TUI application.
+//!
+//! Initializes logging, parses CLI args, sets up raw terminal mode and the
+//! alternate screen, then runs the main event loop via [`App`].
 #![allow(dead_code)]
 mod app;
 mod tui_compat;

@@ -3,12 +3,14 @@ use std::path::Path;
 use anyhow::Result;
 use std::collections::HashMap;
 
+/// Manages loaded themes and provides access to the current theme's stylesheet.
 pub struct ThemeEngine {
     pub themes: HashMap<String, StyleSheet>,
     pub current_theme: String,
 }
 
 impl ThemeEngine {
+    /// Create a theme engine with the built-in default theme (Tokyo Night).
     pub fn new() -> Self {
         let mut themes = HashMap::new();
         let default = StyleSheet::default_dark();
@@ -20,6 +22,7 @@ impl ThemeEngine {
         }
     }
 
+    /// Load all `.toml` theme files from the given directory.
     pub fn load_themes(&mut self, directory: impl AsRef<Path>) -> Result<()> {
         let dir = directory.as_ref();
         if !dir.exists() {
@@ -39,12 +42,14 @@ impl ThemeEngine {
         Ok(())
     }
 
+    /// Return the stylesheet for the currently active theme.
     pub fn get_current(&self) -> &StyleSheet {
         self.themes.get(&self.current_theme).unwrap_or_else(|| {
             self.themes.values().next().expect("At least one theme must exist")
         })
     }
 
+    /// Switch to a named theme; returns an error if it is not loaded.
     pub fn set_theme(&mut self, name: &str) -> Result<(), String> {
         if self.themes.contains_key(name) {
             self.current_theme = name.to_string();
@@ -54,6 +59,7 @@ impl ThemeEngine {
         }
     }
 
+    /// Return all loaded theme names, sorted alphabetically.
     pub fn list_themes(&self) -> Vec<String> {
         let mut list: Vec<String> = self.themes.keys().cloned().collect();
         list.sort();

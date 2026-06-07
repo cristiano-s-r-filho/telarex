@@ -1,5 +1,6 @@
 use ropey::Rope;
 
+/// A cursor motion primitive (word, line, paragraph).
 pub enum Motion {
     WordForward,
     WordBackward,
@@ -10,6 +11,7 @@ pub enum Motion {
     ParagraphBackward,
 }
 
+/// Compute the character range from `pos` for the given motion direction.
 pub fn find_motion_range(rope: &Rope, pos: usize, motion: Motion) -> std::ops::Range<usize> {
     match motion {
         Motion::WordForward => {

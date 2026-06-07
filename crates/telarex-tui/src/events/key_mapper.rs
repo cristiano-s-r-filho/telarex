@@ -1,8 +1,10 @@
+//! Key mapper — resolves [`KeyEvent`]s to [`UIAction`]s using configurable and built-in mappings.
 use std::collections::HashMap;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, KeyEventKind};
 use crate::events::UIAction;
 use telarex_core::config::schema::KeymapConfig;
 
+/// Maps [`KeyEvent`]s to [`UIAction`]s using global, editor, and explorer keymaps.
 pub struct KeyMapper {
     pub global: HashMap<KeyEvent, UIAction>,
     pub editor: HashMap<KeyEvent, UIAction>,

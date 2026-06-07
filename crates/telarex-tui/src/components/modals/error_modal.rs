@@ -1,3 +1,4 @@
+//! Error modal — displays errors, warnings, and info messages with level-based styling.
 use crossterm::event::{KeyCode, KeyEventKind};
 use ratatui::{
     layout::{Rect, Layout, Constraint},
@@ -12,13 +13,18 @@ use telarex_core::errors::{TrexError, ErrorLevel};
 use crate::utils::sanitize;
 use crate::theme::Theme;
 
+/// Error/info modal — displays a [`TrexError`] with level-appropriate styling.
 pub struct ErrorModal {
+    /// Whether the modal is currently visible.
     pub active: bool,
+    /// The error to display, if any.
     pub current_error: Option<TrexError>,
+    /// The current theme.
     pub theme: Theme,
 }
 
 impl ErrorModal {
+    /// Creates a new hidden `ErrorModal`.
     pub fn new() -> Self {
         Self {
             active: false,
@@ -27,11 +33,13 @@ impl ErrorModal {
         }
     }
 
+    /// Shows the modal with the given error.
     pub fn show(&mut self, error: TrexError) {
         self.active = true;
         self.current_error = Some(error);
     }
 
+    /// Hides the modal and clears the current error.
     pub fn hide(&mut self) {
         self.active = false;
         self.current_error = None;
@@ -73,7 +81,7 @@ impl Component for ErrorModal {
         let block = Block::default()
             .borders(Borders::ALL)
             .border_style(Style::default().fg(border_color))
-            .bg(self.theme.bg)
+            .bg(self.theme.surface_alt)
             .title(format!(" Error: {} ", sanitize(&error.code)));
 
         let inner = block.inner(modal_area);

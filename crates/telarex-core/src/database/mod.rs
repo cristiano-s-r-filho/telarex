@@ -1,13 +1,21 @@
+//! Database — SQLite persistence for lodges, sessions, recent projects, and logs.
+//!
+//! [`Database`] manages the local SQLite database which stores lodge registrations,
+//! peer sessions, recent project history, network error logs, and access control
+//! entries. It is used by the networking and workspace layers for durable state.
+
 use rusqlite::{params, Connection};
 use uuid::Uuid;
 use anyhow::Result;
 use crate::errors::TrexError;
 
+/// SQLite database wrapper for local persistence of lodges, sessions, and logs.
 pub struct Database {
     conn: Connection,
 }
 
 impl Database {
+    /// Open (or create) the database, running schema initialization.
     pub fn open() -> Result<Self> {
         let data_dir = directories::ProjectDirs::from("", "", "telarex")
             .ok_or_else(|| anyhow::anyhow!("could not determine data directory"))?
@@ -65,6 +73,7 @@ impl Database {
         Ok(())
     }
 
+    /// Persist a [`TrexError`] to the network_logs table.
     pub fn log_error(&self, error: &TrexError) -> Result<()> {
         let level_str = format!("{:?}", error.level);
         self.conn.execute(
@@ -74,6 +83,7 @@ impl Database {
         Ok(())
     }
 
+    /// Register or update a lodge record in the database.
     pub fn register_lodge(&self, id: Uuid, path: &str, name: &str, is_owner: bool) -> Result<()> {
         // HARDENING: Deduplicate by UUID
         self.conn.execute(
@@ -84,6 +94,7 @@ impl Database {
         Ok(())
     }
 
+    /// Add a path to the recent projects list.
     pub fn add_recent_project(&self, path: &str) -> Result<()> {
         self.conn.execute(
             "INSERT OR REPLACE INTO recent_projects (path, last_opened) VALUES (?1, CURRENT_TIMESTAMP)",
@@ -92,6 +103,7 @@ impl Database {
         Ok(())
     }
 
+    /// Return the 20 most recent project paths, ordered by last opened.
     pub fn get_recent_projects(&self) -> Result<Vec<String>> {
         let mut stmt = self.conn.prepare("SELECT path FROM recent_projects ORDER BY last_opened DESC LIMIT 20")?;
         let rows = stmt.query_map([], |row| row.get(0))?;
@@ -102,6 +114,7 @@ impl Database {
         Ok(results)
     }
 
+    /// Register or update a peer session for a lodge.
     pub fn register_session(&self, lodge_id: Uuid, peer_id: &str, username: &str) -> Result<()> {
         self.conn.execute(
             "INSERT OR REPLACE INTO sessions (lodge_id, peer_id, username) VALUES (?1, ?2, ?3)",
@@ -110,6 +123,7 @@ impl Database {
         Ok(())
     }
 
+    /// Return all lodges owned by the local user.
     pub fn get_my_lodges(&self) -> Result<Vec<(Uuid, String, String)>> {
         let mut stmt = self.conn.prepare("SELECT uuid, path, name FROM lodges WHERE is_owner = 1 ORDER BY last_accessed DESC")?;
         let rows = stmt.query_map([], |row| {
@@ -128,6 +142,7 @@ impl Database {
         Ok(results)
     }
 
+    /// Drop all tables and re‑initialize the database schema.
     pub fn reset(&self) -> Result<()> {
         self.conn.execute("DROP TABLE IF EXISTS lodges", [])?;
         self.conn.execute("DROP TABLE IF EXISTS sessions", [])?;
@@ -138,6 +153,7 @@ impl Database {
         Ok(())
     }
 
+    /// Delete a lodge and its cascade‑related sessions/access control entries.
     pub fn delete_lodge(&self, id: Uuid) -> Result<()> {
         self.conn.execute("DELETE FROM lodges WHERE uuid = ?1", params![id.to_string()])?;
         Ok(())

@@ -1,3 +1,9 @@
+//! Actor system — async buffer actor for thread-safe buffer lifecycle management.
+//!
+//! [`BufferActor`] runs in a Tokio task and owns the authoritative copies of all
+//! open buffers. Callers send [`BufferActorCommand`] messages via an `mpsc` channel
+//! to get or create buffers, apply edits, or close them.
+
 use std::collections::HashMap;
 use std::path::PathBuf;
 use tokio::sync::mpsc;
@@ -21,13 +27,14 @@ pub enum BufferActorCommand {
     Close { path: PathBuf },
 }
 
-/// The BufferActor manages the 'Source of Truth' buffers.
+/// Manages the authoritative copies of all open buffers in a Tokio task.
 pub struct BufferActor {
     buffers: HashMap<PathBuf, Arc<Mutex<ManagedBuffer>>>,
     receiver: mpsc::Receiver<BufferActorCommand>,
 }
 
 impl BufferActor {
+    /// Spawn the actor in a Tokio task and return a channel sender for commands.
     pub fn start() -> mpsc::Sender<BufferActorCommand> {
         let (tx, rx) = mpsc::channel(100);
         tokio::spawn(async move {

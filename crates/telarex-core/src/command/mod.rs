@@ -1,3 +1,13 @@
+//! Command enumeration — a typed set of every action the editor can perform.
+//!
+//! [`Command`] covers file operations, git integration, workspace sharing,
+//! and application lifecycle. It provides human-readable names and descriptions
+//! for use in command palettes and keybinding displays.
+
+/// A typed action the editor can perform — file ops, git, network, and lifecycle.
+///
+/// Each variant has a human-readable [`name`](Command::name) and
+/// [`description`](Command::description) for UI display.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Command {
     OpenFile,
@@ -19,6 +29,7 @@ pub enum Command {
 }
 
 impl Command {
+    /// Return every available command variant.
     pub fn all() -> Vec<Command> {
         vec![
             Command::OpenFile,
@@ -39,6 +50,7 @@ impl Command {
         ]
     }
 
+    /// Return a short, human-readable name for this command.
     pub fn name(&self) -> &'static str {
         match self {
             Command::OpenFile => "Open File",
@@ -60,6 +72,7 @@ impl Command {
         }
     }
 
+    /// Return a longer description explaining what this command does.
     pub fn description(&self) -> &'static str {
         match self {
             Command::OpenFile => "Open a file from the filesystem",

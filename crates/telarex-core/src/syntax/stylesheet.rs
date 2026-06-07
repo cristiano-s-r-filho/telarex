@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+/// A complete theme definition with metadata, palette, UI colors, and syntax tokens.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StyleSheet {
     pub name: String,
@@ -10,12 +11,14 @@ pub struct StyleSheet {
     pub syntax: HashMap<String, StyleToken>,
 }
 
+/// Author and variant information for a theme.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ThemeMetadata {
     pub author: String,
     pub variant: String,
 }
 
+/// A color value — either a simple hex string or a color with alpha.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum ColorRef {
@@ -32,6 +35,7 @@ impl ColorRef {
     }
 }
 
+/// UI chrome colors for the editor surface, gutter, status bar, borders, etc.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UIStyles {
     pub bg: String,
@@ -83,6 +87,7 @@ fn default_selection_bg() -> ColorRef {
     ColorRef::Simple("#3e4452".to_string())
 }
 
+/// A syntax-highlighting style token with hex colour, bold, and italic flags.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StyleToken {
     pub color: String,

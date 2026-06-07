@@ -1,3 +1,4 @@
+//! Application — screen manager, event loop, and top-level state.
 use crate::screens::{WelcomeView, EditorView, ConfigView, DiscoveredLodge};
 use crate::components::{NodeKind, ErrorModal};
 use crate::network::{NetworkManager, NetworkEvent, NetworkCommand};
@@ -15,11 +16,13 @@ use std::collections::HashMap;
 use telarex_core::workspace::{PendingJoin, WorkspaceMember};
 use crate::theme::Theme;
 
+/// Top-level screen the application is currently displaying.
 #[derive(PartialEq, Clone, Copy)]
 pub enum AppScreen { Welcome, Editor, Config }
 
 use std::time::Instant;
 
+/// Root application controller — owns all screens, network state, and the main event loop.
 pub struct App {
     current_screen: AppScreen,
     previous_screen: AppScreen,
@@ -47,6 +50,7 @@ pub struct App {
 }
 
 impl App {
+    /// Creates a new `App`, initialising config, database, network, and screens.
     pub fn new(initial_file: Option<String>, session_id: Option<String>) -> Self {
         let config_data = config::load(session_id.as_deref()).unwrap_or_default();
         let db = telarex_core::database::Database::open().expect("Failed to open database");

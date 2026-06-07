@@ -1,5 +1,6 @@
 use ropey::Rope;
 
+/// Undo/redo history tracking for text buffers, with a configurable depth.
 pub struct History {
     undo_stack: Vec<Rope>,
     redo_stack: Vec<Rope>,
@@ -7,6 +8,7 @@ pub struct History {
 }
 
 impl History {
+    /// Create a new history with the default maximum depth (100).
     pub fn new() -> Self {
         Self {
             undo_stack: Vec::new(),
@@ -15,6 +17,7 @@ impl History {
         }
     }
 
+    /// Save a snapshot of the current state for future undo.
     pub fn push(&mut self, state: Rope) {
         // If the new state is same as the last one, don't push
         if let Some(last) = self.undo_stack.last() {
@@ -30,6 +33,7 @@ impl History {
         self.redo_stack.clear();
     }
 
+    /// Undo to the previous state; returns `None` if the stack is empty.
     pub fn undo(&mut self, current: Rope) -> Option<Rope> {
         if let Some(prev) = self.undo_stack.pop() {
             self.redo_stack.push(current);
@@ -39,6 +43,7 @@ impl History {
         }
     }
 
+    /// Redo to the next state; returns `None` if the stack is empty.
     pub fn redo(&mut self, current: Rope) -> Option<Rope> {
         if let Some(next) = self.redo_stack.pop() {
             self.undo_stack.push(current);

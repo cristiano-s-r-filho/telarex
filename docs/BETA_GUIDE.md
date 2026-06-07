@@ -252,7 +252,7 @@ telarex/
 │   └── telarex-tui/      # Terminal UI: ratatui screens, components, events
 ├── themes/               # TOML theme files
 ├── docs/                 # Architecture documentation
-└── plans/                # Planning/spec documents
+└── test_fixtures/        # Test fixture files (LSP samples, etc.)
 ```
 
 Key dependencies:

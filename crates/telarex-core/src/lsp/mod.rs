@@ -1,3 +1,10 @@
+//! LSP client — Language Server Protocol integration for code intelligence.
+//!
+//! [`LspClient`] manages a child LSP server process and communicates via stdin/stdout
+//! using the JSON-RPC 2.0 protocol. It supports `textDocument/didOpen`,
+//! `textDocument/didChange`, `textDocument/completion`, and forwards all
+//! server responses as events. [`CompletionItem`] models LSP completion results.
+
 use tokio::process::{Command, Child, ChildStdin};
 use tokio::io::{AsyncWriteExt, AsyncBufReadExt, BufReader, AsyncReadExt};
 use serde::{Deserialize, Serialize};
@@ -5,6 +12,7 @@ use serde_json::{json, Value};
 use std::sync::{Arc, Mutex};
 use tokio::sync::mpsc;
 
+/// A client that manages a child LSP server process via JSON-RPC 2.0.
 pub struct LspClient {
     _child: Child,
     writer: Arc<tokio::sync::Mutex<ChildStdin>>,
@@ -12,6 +20,7 @@ pub struct LspClient {
     completion_rx: mpsc::Receiver<Vec<CompletionItem>>,
 }
 
+/// A completion item returned by the LSP server.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CompletionItem {
     pub label: String,
@@ -22,6 +31,7 @@ pub struct CompletionItem {
 }
 
 impl LspClient {
+    /// Start an LSP server process and return a client connected to it.
     pub fn start(command: &str, _root: &std::path::Path, event_tx: mpsc::Sender<Value>) -> anyhow::Result<Self> {
         let mut child = Command::new(command)
             .stdin(std::process::Stdio::piped())
@@ -73,21 +83,25 @@ impl LspClient {
         Ok(Self { _child: child, writer, request_id, completion_rx: c_rx })
     }
 
+    /// Try to receive any pending completions (non-blocking).
     pub fn try_recv_completions(&mut self) -> Result<Vec<CompletionItem>, mpsc::error::TryRecvError> {
         self.completion_rx.try_recv()
     }
 
+    /// Send a `textDocument/didOpen` notification to the LSP server.
     pub fn notify_open(&self, path: &std::path::Path, lang: &str, text: String) {
         let uri = format!("file:///{}", path.display());
         let params = json!({ "textDocument": { "uri": uri, "languageId": lang, "version": 1, "text": text } });
         self.notify("textDocument/didOpen", params);
     }
 
+    /// Send a `textDocument/didChange` notification with new text content.
     pub fn notify_change(&self, uri: &str, version: i32, text: String) {
         let params = json!({ "textDocument": { "uri": uri, "version": version }, "contentChanges": [{ "text": text }] });
         self.notify("textDocument/didChange", params);
     }
 
+    /// Request completions at the given cursor position (asynchronously).
     pub fn request_completions(&self, uri: &str, line: usize, col: usize) {
         let id = self.next_id();
         let params = json!({

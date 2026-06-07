@@ -1,3 +1,4 @@
+//! Component module — re-exports all TUI widgets and sub-modules.
 pub mod editor;
 pub mod explorer;
 pub mod bars;

@@ -2,15 +2,22 @@ use ropey::Rope;
 use tree_sitter::{InputEdit, Parser, Point, Tree};
 use std::path::PathBuf;
 
+/// Commands that can be applied to a [`ManagedBuffer`].
 #[derive(Debug)]
 pub enum BufferCommand {
+    /// Replace a range of characters with new text.
     ApplyEdit { start_char: usize, del_chars: usize, new_text: String },
+    /// Replace the entire buffer content with a new string.
     SetText(String),
+    /// Persist the buffer content to disk.
     Save,
 }
 
-/// A buffer that manages both the raw text (Rope) and its syntax tree (Tree-sitter).
-/// This is the 'Source of Truth' for all editing operations.
+/// A buffer pairing text content (rope) with its incremental syntax tree (Tree-sitter).
+///
+/// This is the source of truth for all editing operations. Every edit updates both
+/// the rope and the tree, and increments a monotonic version counter for consumers
+/// (e.g. highlighters) to detect changes.
 pub struct ManagedBuffer {
     pub rope: Rope,
     pub tree: Option<Tree>,
@@ -21,6 +28,7 @@ pub struct ManagedBuffer {
 }
 
 impl ManagedBuffer {
+    /// Create an empty managed buffer with no path and no syntax tree.
     pub fn new() -> Self {
         Self {
             rope: Rope::new(),
@@ -31,6 +39,7 @@ impl ManagedBuffer {
         }
     }
 
+    /// Create a managed buffer from an existing rope (no tree, no path).
     pub fn from_rope(rope: Rope) -> Self {
         Self {
             rope,
@@ -41,6 +50,7 @@ impl ManagedBuffer {
         }
     }
 
+    /// Process a [`BufferCommand`], applying edits and re‑parsing the syntax tree.
     pub fn handle_command(&mut self, cmd: BufferCommand, parser: &mut Parser) {
         match cmd {
             BufferCommand::ApplyEdit { start_char, del_chars, new_text } => {
@@ -65,7 +75,7 @@ impl ManagedBuffer {
         }
     }
 
-    /// Performs an incremental parse of the buffer.
+    /// Perform an incremental re‑parse of the syntax tree.
     pub fn parse(&mut self, parser: &mut Parser) {
         let mut callback = |byte_offset: usize, _position: Point| -> &[u8] {
             if byte_offset >= self.rope.len_bytes() {
@@ -82,7 +92,7 @@ impl ManagedBuffer {
         self.tree = parser.parse_with(&mut callback, self.tree.as_ref());
     }
 
-    /// Appies an edit to both the Rope and the syntax Tree.
+    /// Apply an edit to both the rope and the syntax tree, incrementing the version.
     pub fn apply_edit(&mut self, start_char: usize, del_chars: usize, new_text: &str) {
         // 1. Convert char offsets to byte offsets for Tree-sitter
         let start_byte = self.rope.char_to_byte(start_char);
@@ -119,10 +129,12 @@ impl ManagedBuffer {
         self.version += 1;
     }
 
+    /// Return the number of lines in the buffer.
     pub fn line_count(&self) -> usize {
         self.rope.len_lines()
     }
 
+    /// Return the number of characters in the buffer.
     pub fn len_chars(&self) -> usize {
         self.rope.len_chars()
     }

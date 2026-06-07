@@ -3,6 +3,7 @@ use std::path::Path;
 use crate::buffer::history::History;
 // This was written by User_17838!  
 
+/// A text document backed by a rope, with history‑aware insert/delete and file I/O.
 pub struct Document {
     pub rope: Rope,
     path: Option<std::path::PathBuf>,
@@ -12,6 +13,7 @@ pub struct Document {
 
 
 impl Document {
+    /// Create an empty document with no path.
     pub fn new() -> Self {
         Self {
             rope: Rope::new(),
@@ -21,6 +23,7 @@ impl Document {
         }
     }
 
+    /// Load a document from a file path; creates an empty document if missing.
     pub fn load(path: impl AsRef<Path>) -> std::io::Result<Self> {
         let path_ref = path.as_ref();
         if !path_ref.exists() {
@@ -40,6 +43,7 @@ impl Document {
         })
     }
 
+    /// Write the document content to its file path.
     pub fn save(&mut self) -> std::io::Result<()> {
         if let Some(path) = &self.path {
             if let Some(parent) = path.parent() {
@@ -51,18 +55,21 @@ impl Document {
         Ok(())
     }
 
+    /// Insert a single character at the given position (saves undo state).
     pub fn insert_char(&mut self, pos: usize, ch: char) {
         self.history.push(self.rope.clone());
         self.rope.insert_char(pos, ch);
         self.modified = true;
     }
 
+    /// Insert a string at the given position (saves undo state).
     pub fn insert(&mut self, pos: usize, text: &str) {
         self.history.push(self.rope.clone());
         self.rope.insert(pos, text);
         self.modified = true;
     }
 
+    /// Delete the character at the given position (saves undo state).
     pub fn delete_char(&mut self, pos: usize) {
         if pos < self.rope.len_chars() {
             self.history.push(self.rope.clone());
@@ -71,6 +78,7 @@ impl Document {
         }
     }
 
+    /// Delete a range of characters (saves undo state).
     pub fn delete_range(&mut self, range: std::ops::Range<usize>) {
         if range.start < self.rope.len_chars() {
             self.history.push(self.rope.clone());
@@ -80,6 +88,7 @@ impl Document {
         }
     }
 
+    /// Undo the most recent edit.
     pub fn undo(&mut self) {
         if let Some(prev) = self.history.undo(self.rope.clone()) {
             self.rope = prev;
@@ -87,6 +96,7 @@ impl Document {
         }
     }
 
+    /// Redo the last undone edit.
     pub fn redo(&mut self) {
         if let Some(next) = self.history.redo(self.rope.clone()) {
             self.rope = next;
@@ -94,22 +104,27 @@ impl Document {
         }
     }
 
+    /// Return the number of characters in the document.
     pub fn len_chars(&self) -> usize {
         self.rope.len_chars()
     }
 
+    /// Return the number of lines in the document.
     pub fn line_count(&self) -> usize {
         self.rope.len_lines()
     }
 
+    /// Return the content of a specific line (0‑indexed).
     pub fn line(&self, index: usize) -> Option<String> {
         self.rope.get_line(index).map(|cow| cow.to_string())
     }
 
+    /// Whether the document has unsaved changes.
     pub fn is_modified(&self) -> bool {
         self.modified
     }
 
+    /// The file path this document was loaded from or will be saved to.
     pub fn path(&self) -> Option<&std::path::Path> {
         self.path.as_deref()
     }
